@@ -113,6 +113,8 @@ function segmentDistanceKm(a: [number, number], b: [number, number]) {
 }
 
 function getSurfaceStretches(coords: [number, number][]) {
+  let landKm = 0;
+  let waterKm = 0;
   let longestLandKm = 0;
   let longestWaterKm = 0;
   let currentKind: SurfaceKind | null = null;
@@ -124,6 +126,9 @@ function getSurfaceStretches(coords: [number, number][]) {
     const midpoint: [number, number] = [(prev[0] + curr[0]) / 2, (prev[1] + curr[1]) / 2];
     const kind = surfaceKindForCoord(midpoint);
     const km = segmentDistanceKm(prev, curr);
+
+    if (kind === 'land') landKm += km;
+    if (kind === 'water') waterKm += km;
 
     if (currentKind === kind) {
       currentKm += km;
@@ -138,7 +143,7 @@ function getSurfaceStretches(coords: [number, number][]) {
   if (currentKind === 'land') longestLandKm = Math.max(longestLandKm, currentKm);
   if (currentKind === 'water') longestWaterKm = Math.max(longestWaterKm, currentKm);
 
-  return { longestLandKm, longestWaterKm };
+  return { landKm, waterKm, longestLandKm, longestWaterKm };
 }
 
 function formatLatLng(lat: number, lng: number) {
@@ -532,10 +537,10 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
 
   const activePathStats = useMemo(() => {
     if (!activePath || activePath.points.length < 2) {
-      return { legs: [], totalKm: 0, longestKm: 0, longestLandKm: 0, longestWaterKm: 0 };
+      return { legs: [], totalKm: 0, landKm: 0, waterKm: 0, landPct: 0, waterPct: 0, longestKm: 0, longestLandKm: 0, longestWaterKm: 0 };
     }
 
-    const legs: { label: string; km: number; type: string; longestLandKm: number; longestWaterKm: number }[] = [];
+    const legs: { label: string; km: number; type: string; landKm: number; waterKm: number; landPct: number; waterPct: number; longestLandKm: number; longestWaterKm: number }[] = [];
     const legCount = activePath.type === 'full' ? activePath.points.length : activePath.points.length - 1;
 
     for (let i = 0; i < legCount; i++) {
@@ -544,6 +549,8 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
       if (!start || !end || start.id === end.id) continue;
 
       let km = 0;
+      let landKm = 0;
+      let waterKm = 0;
       let longestLandKm = 0;
       let longestWaterKm = 0;
       let typeLabel = activePath.type === 'shortest' ? 'Short arc' : activePath.type === 'longest' ? 'Long arc' : 'Full orbit';
@@ -559,6 +566,8 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
         coordsSets.forEach(coords => {
           km += lineDistanceKm(coords);
           const surface = getSurfaceStretches(coords);
+          landKm += surface.landKm;
+          waterKm += surface.waterKm;
           longestLandKm = Math.max(longestLandKm, surface.longestLandKm);
           longestWaterKm = Math.max(longestWaterKm, surface.longestWaterKm);
         });
@@ -570,16 +579,24 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
         label: `${start.name || `Point ${i + 1}`} → ${end.name || `Point ${(i + 2) > activePath.points.length ? 1 : i + 2}`}`,
         km,
         type: typeLabel,
+        landKm,
+        waterKm,
+        landPct: km > 0 ? (landKm / km) * 100 : 0,
+        waterPct: km > 0 ? (waterKm / km) * 100 : 0,
         longestLandKm,
         longestWaterKm
       });
     }
 
     const totalKm = legs.reduce((acc, leg) => acc + leg.km, 0);
+    const landKm = legs.reduce((acc, leg) => acc + leg.landKm, 0);
+    const waterKm = legs.reduce((acc, leg) => acc + leg.waterKm, 0);
+    const landPct = totalKm > 0 ? (landKm / totalKm) * 100 : 0;
+    const waterPct = totalKm > 0 ? (waterKm / totalKm) * 100 : 0;
     const longestKm = legs.reduce((max, leg) => Math.max(max, leg.km), 0);
     const longestLandKm = legs.reduce((max, leg) => Math.max(max, leg.longestLandKm), 0);
     const longestWaterKm = legs.reduce((max, leg) => Math.max(max, leg.longestWaterKm), 0);
-    return { legs, totalKm, longestKm, longestLandKm, longestWaterKm };
+    return { legs, totalKm, landKm, waterKm, landPct, waterPct, longestKm, longestLandKm, longestWaterKm };
   }, [activePath]);
 
   return (
@@ -805,6 +822,17 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
                       <div className="px-2 py-1 bg-[#F27D26]/10 text-[12px] font-mono text-[#F27D26] uppercase font-semibold">Active</div>
                     )}
                   </div>
+                  {activePathId === p.id && p.points.length >= 2 && (
+                    <div className="mt-3 border border-[#2D2D2D] bg-black/25 p-2">
+                      <div className="flex items-center justify-between text-[12px] font-mono uppercase tracking-[0.04em] text-white/55">
+                        <span>Land / Water</span>
+                        <span className="text-[#F27D26]">{formatNumber(activePathStats.landPct, 1)}% / {formatNumber(activePathStats.waterPct, 1)}%</span>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden bg-black/60">
+                        <div className="h-full bg-[#ffb84a]" style={{ width: `${Math.max(0, Math.min(100, activePathStats.landPct))}%` }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -864,6 +892,23 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
                       </div>
                     </div>
 
+                    <div className="border border-[#8a5b22]/50 bg-black/25 p-4">
+                      <div className="mb-3 flex items-center justify-between text-[12px] font-mono uppercase tracking-[0.08em]">
+                        <span className="text-white/55">Land / Water</span>
+                        <span className="text-[#F27D26]">{formatNumber(activePathStats.landPct, 1)}% / {formatNumber(activePathStats.waterPct, 1)}%</span>
+                      </div>
+                      <div className="h-3 overflow-hidden border border-[#2D2D2D] bg-black/50">
+                        <div
+                          className="h-full bg-[#ffb84a]"
+                          style={{ width: `${Math.max(0, Math.min(100, activePathStats.landPct))}%` }}
+                        />
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-[12px] font-mono uppercase tracking-[0.04em] text-white/50">
+                        <span>Land {formatNumber(activePathStats.landKm * KM_TO_MILES)} mi</span>
+                        <span className="text-right">Water {formatNumber(activePathStats.waterKm * KM_TO_MILES)} mi</span>
+                      </div>
+                    </div>
+
                     <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
                       <div className="border border-white/10 bg-black/30 p-4">
                         <div className="text-[12px] font-mono uppercase tracking-[0.08em] text-white/55">Nautical</div>
@@ -906,8 +951,12 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
                             <span className="pb-1 text-[13px] font-mono text-white/55">mi / {formatNumber(leg.km)} km</span>
                           </div>
                           <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] font-mono uppercase tracking-[0.04em]">
-                            <span className="bg-black/30 px-2 py-2 text-white/55">Land max {formatNumber(leg.longestLandKm * KM_TO_MILES)} mi</span>
-                            <span className="bg-black/30 px-2 py-2 text-white/55">Water max {formatNumber(leg.longestWaterKm * KM_TO_MILES)} mi</span>
+                            <span className="bg-black/30 px-2 py-2 text-white/55">Land {formatNumber(leg.landPct, 1)}%</span>
+                            <span className="bg-black/30 px-2 py-2 text-white/55">Water {formatNumber(leg.waterPct, 1)}%</span>
+                          </div>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[12px] font-mono uppercase tracking-[0.04em]">
+                            <span className="bg-black/30 px-2 py-2 text-white/45">Land max {formatNumber(leg.longestLandKm * KM_TO_MILES)} mi</span>
+                            <span className="bg-black/30 px-2 py-2 text-white/45">Water max {formatNumber(leg.longestWaterKm * KM_TO_MILES)} mi</span>
                           </div>
                         </div>
                       ))}
