@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Globe from 'react-globe.gl';
 import { calculateGeodesicPath, PathType as BasePathType } from './lib/geodesic';
 import * as turf from '@turf/turf';
+import * as THREE from 'three';
 import { Globe as GlobeIcon, Crosshair, Trash2, MapPin, Layers, Info, ChevronRight, Menu, RotateCw, Search, X, Loader2, Edit2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -32,6 +33,18 @@ interface SearchResult {
   display_name: string;
   lat: string;
   lon: string;
+}
+
+interface CountryFeature {
+  type: 'Feature';
+  properties: {
+    name?: string;
+    [key: string]: unknown;
+  };
+  geometry: {
+    type: 'Polygon' | 'MultiPolygon';
+    coordinates: number[][][] | number[][][][];
+  };
 }
 
 
@@ -155,6 +168,7 @@ export default function App() {
   const [editingPathId, setEditingPathId] = useState<string | null>(null);
   const [newPathName, setNewPathName] = useState('');
   const [hasInteracted, setHasInteracted] = useState(false);
+  const [countries, setCountries] = useState<CountryFeature[]>([]);
 
   // Globe Styles
   const [globeStyle, setGlobeStyle] = useState('dark');
@@ -187,6 +201,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
 
   const colors = ['#FFB84A', '#FFD36E', '#C9842E', '#F0A336', '#FFE6A3', '#A9671D'];
+  const assetBase = ((import.meta as any).env?.BASE_URL || '/') as string;
 
   const activePath = useMemo(() => 
     paths.find(p => p.id === activePathId) || paths[0], 
@@ -211,6 +226,98 @@ export default function App() {
       globeRef.current.controls().autoRotateSpeed = 0.5;
     }
   }, [isRotating]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${assetBase}countries-110m.geojson`)
+      .then(resp => resp.json())
+      .then(data => {
+        if (!cancelled) setCountries((data.features || []) as CountryFeature[]);
+      })
+      .catch(err => console.error('Failed to load country outline layer', err));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assetBase]);
+
+  const globeMaterial = useMemo(() => {
+    const loader = new THREE.TextureLoader();
+    const style = globeStyles[globeStyle as keyof typeof globeStyles];
+    const map = loader.load(style.img);
+    const bumpMap = loader.load(style.bump);
+
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.anisotropy = 8;
+    bumpMap.anisotropy = 8;
+
+    const material = new THREE.MeshPhongMaterial({
+      map,
+      bumpMap,
+      bumpScale: 5.2,
+      color: new THREE.Color('#ffd18a'),
+      emissive: new THREE.Color('#3f2507'),
+      emissiveIntensity: isMobile ? 0.34 : 0.46,
+      specular: new THREE.Color('#ffcf7a'),
+      shininess: 4.5,
+      transparent: false
+    });
+
+    material.onBeforeCompile = shader => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <dithering_fragment>',
+        `
+          float crtRim = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 2.4);
+          float crtLatitudeBand = sin(vViewPosition.y * 38.0) * 0.5 + 0.5;
+          float crtFineBand = sin((vViewPosition.x + vViewPosition.y) * 145.0) * 0.5 + 0.5;
+          vec3 crtAmber = vec3(1.0, 0.62, 0.18);
+          vec3 crtHot = vec3(1.0, 0.86, 0.46);
+
+          gl_FragColor.rgb = mix(gl_FragColor.rgb * vec3(1.30, 0.82, 0.36), crtAmber, 0.26);
+          gl_FragColor.rgb += crtAmber * crtRim * 0.62;
+          gl_FragColor.rgb += crtHot * pow(crtRim, 4.0) * 0.34;
+          gl_FragColor.rgb *= 0.86 + (crtLatitudeBand * 0.12) + (crtFineBand * 0.045);
+          gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.11, 0.065, 0.018));
+          #include <dithering_fragment>
+        `
+      );
+    };
+
+    return material;
+  }, [globeStyle, isMobile]);
+
+  const countryCapMaterial = useMemo(() => new THREE.MeshBasicMaterial({
+    color: new THREE.Color('#ffb84a'),
+    transparent: true,
+    opacity: isMobile ? 0.022 : 0.035,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending
+  }), [isMobile]);
+
+  const countrySideMaterial = useMemo(() => new THREE.MeshBasicMaterial({
+    color: new THREE.Color('#ff8f24'),
+    transparent: true,
+    opacity: 0.018,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending
+  }), []);
+
+  const handleGlobeReady = useCallback(() => {
+    if (!globeRef.current) return;
+    const scene = globeRef.current.scene?.();
+    if (scene && !scene.getObjectByName('amber-country-rim-light')) {
+      const key = new THREE.DirectionalLight('#ffc76a', 1.45);
+      key.name = 'amber-country-rim-light';
+      key.position.set(-2.2, 1.4, 1.9);
+      scene.add(key);
+
+      const fill = new THREE.AmbientLight('#ff9f2f', 1.15);
+      fill.name = 'amber-country-fill-light';
+      scene.add(fill);
+    }
+  }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -852,9 +959,25 @@ export default function App() {
             ref={globeRef}
             globeImageUrl={globeStyles[globeStyle as keyof typeof globeStyles].img}
             bumpImageUrl={globeStyles[globeStyle as keyof typeof globeStyles].bump}
+            globeMaterial={globeMaterial}
+            globeCurvatureResolution={3}
+            showGraticules
+            showAtmosphere
+            atmosphereColor="#ffb84a"
+            atmosphereAltitude={isMobile ? 0.16 : 0.19}
             backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
+            onGlobeReady={handleGlobeReady}
             
             onGlobeClick={(coords) => addPoint({ lat: coords.lat, lng: coords.lng })}
+            
+            polygonsData={countries}
+            polygonCapMaterial={countryCapMaterial}
+            polygonSideMaterial={countrySideMaterial}
+            polygonStrokeColor={() => 'rgba(255, 207, 122, 0.82)'}
+            polygonAltitude={() => isMobile ? 0.003 : 0.0045}
+            polygonCapCurvatureResolution={3}
+            polygonLabel={(d: any) => `<div class="crt-globe-label"><strong>${escapeHtml(d.properties?.name || 'COUNTRY TRACE')}</strong><br/><span>ADMIN OUTLINE LOCKED</span></div>`}
+            polygonsTransitionDuration={0}
             
             pathsData={globePaths}
             pathPoints="coords"
@@ -887,10 +1010,10 @@ export default function App() {
           <motion.div
             initial={false}
             animate={{ 
-              scale: hasInteracted ? (isMobile ? 0.45 : 0.6) : (isMobile ? 0.62 : 1),
-              x: hasInteracted ? (isMobile ? 0 : (window.innerWidth / 2) - 180) : (isMobile ? 0 : (isSidebarOpen ? Math.min(180, window.innerWidth * 0.13) : 0)),
-              y: hasInteracted ? (isMobile ? -220 : -(window.innerHeight / 2) + 80) : (isMobile ? -120 : 0),
-              opacity: 1
+              scale: hasInteracted ? (isMobile ? 0.45 : 0.6) : (isMobile ? 0.50 : 0.68),
+              x: hasInteracted ? (isMobile ? 0 : (window.innerWidth / 2) - 180) : (isMobile ? 0 : (isSidebarOpen ? Math.min(260, window.innerWidth * 0.18) : 0)),
+              y: hasInteracted ? (isMobile ? -220 : -(window.innerHeight / 2) + 80) : (isMobile ? -210 : -Math.min(220, window.innerHeight * 0.30)),
+              opacity: hasInteracted ? 1 : 0.62
             }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
             className="text-center"
