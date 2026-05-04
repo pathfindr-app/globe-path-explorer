@@ -45,22 +45,17 @@ body {
 }
 
 .crt-app {
-  background:
-    radial-gradient(circle at 70% 20%, rgba(255, 184, 74, 0.07), transparent 32%),
-    linear-gradient(180deg, #090500 0%, #020100 100%) !important;
+  background: linear-gradient(180deg, #070503 0%, #020100 100%) !important;
   color: var(--crt-amber-hot);
-  text-shadow: 0 0 10px rgba(255, 184, 74, 0.18);
+  text-shadow: none;
 }
 
 .crt-app .crt-panel {
-  background:
-    linear-gradient(180deg, rgba(30, 18, 4, 0.96), rgba(8, 5, 2, 0.98)),
-    repeating-linear-gradient(0deg, rgba(255, 184, 74, 0.03) 0 1px, transparent 1px 6px) !important;
-  border-color: var(--crt-border) !important;
+  background: rgba(9, 7, 4, 0.97) !important;
+  border-color: rgba(255, 184, 74, 0.18) !important;
   box-shadow:
-    inset -1px 0 0 rgba(255, 230, 163, 0.10),
-    inset 0 0 42px rgba(255, 184, 74, 0.045),
-    0 0 56px rgba(0, 0, 0, 0.85) !important;
+    inset -1px 0 0 rgba(255, 230, 163, 0.06),
+    0 0 42px rgba(0, 0, 0, 0.78) !important;
 }
 
 .crt-app .crt-panel::before {
@@ -68,11 +63,9 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    linear-gradient(90deg, rgba(255, 184, 74, 0.065), transparent 18%, transparent 82%, rgba(255, 184, 74, 0.045)),
-    repeating-linear-gradient(90deg, transparent 0 23px, rgba(255, 184, 74, 0.025) 23px 24px);
+  background: linear-gradient(90deg, rgba(255, 184, 74, 0.035), transparent 18%, transparent 82%, rgba(255, 184, 74, 0.025));
   mix-blend-mode: screen;
-  opacity: .75;
+  opacity: .36;
 }
 
 .crt-app section {
@@ -80,21 +73,14 @@ body {
 }
 
 .crt-app section::before {
-  content: "";
-  position: absolute;
-  left: -12px;
-  top: 4px;
-  bottom: 4px;
-  width: 2px;
-  background: linear-gradient(180deg, transparent, rgba(255, 184, 74, 0.55), transparent);
-  opacity: .38;
+  content: none;
 }
 
 .crt-app h3 {
   color: var(--crt-amber-muted) !important;
-  opacity: .88 !important;
-  text-shadow: 0 0 14px rgba(255, 184, 74, .18);
-  letter-spacing: .18em !important;
+  opacity: .92 !important;
+  text-shadow: none;
+  letter-spacing: .12em !important;
 }
 
 .crt-app .text-white,
@@ -139,11 +125,10 @@ body {
 
 .crt-app input {
   color: var(--crt-amber-hot) !important;
-  background:
-    linear-gradient(180deg, rgba(24, 14, 3, .98), rgba(8, 5, 2, .95)) !important;
+  background: rgba(12, 9, 4, .95) !important;
   border-color: var(--crt-border) !important;
-  border-radius: 6px !important;
-  box-shadow: inset 0 0 18px rgba(255, 184, 74, .05);
+  border-radius: 2px !important;
+  box-shadow: inset 0 -1px 0 rgba(255, 184, 74, .12);
 }
 
 .crt-app input::placeholder {
@@ -151,7 +136,7 @@ body {
 }
 
 .crt-app button {
-  border-radius: 6px !important;
+  border-radius: 2px !important;
 }
 
 .crt-app button:hover {
@@ -161,8 +146,8 @@ body {
 
 .crt-hero {
   font-family: var(--font-mono);
-  filter: drop-shadow(0 0 5px rgba(255, 211, 110, 0.42)) drop-shadow(0 0 24px rgba(255, 144, 31, 0.26));
-  -webkit-text-stroke: 1px rgba(255, 230, 163, 0.35);
+  filter: drop-shadow(0 0 4px rgba(255, 211, 110, 0.22));
+  -webkit-text-stroke: 1px rgba(255, 230, 163, 0.18);
 }
 
 .crt-viewport {

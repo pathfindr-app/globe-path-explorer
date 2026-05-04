@@ -158,8 +158,9 @@ function escapeHtml(value: string) {
 
 export default function App() {
   const globeRef = useRef<any>();
+  const lastPlacedRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
   const [paths, setPaths] = useState<Path[]>([
-    { id: '1', name: 'TRACE BUFFER 01', points: [], type: 'shortest', color: '#FFB84A' }
+    { id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FFB84A' }
   ]);
   const [activePathId, setActivePathId] = useState<string>('1');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
@@ -358,7 +359,7 @@ export default function App() {
     const newId = Math.random().toString(36).substr(2, 9);
     const newPath: Path = {
       id: newId,
-      name: `Path ${paths.length + 1}`,
+      name: `Route ${String(paths.length + 1).padStart(2, '0')}`,
       points: [],
       type: 'shortest',
       color: colors[paths.length % colors.length]
@@ -370,7 +371,7 @@ export default function App() {
   const removePath = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (paths.length === 1) {
-      setPaths([{ id: '1', name: 'TRACE BUFFER 01', points: [], type: 'shortest', color: '#FFB84A' }]);
+setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FFB84A' }]);
       setActivePathId('1');
       return;
     }
@@ -407,6 +408,35 @@ export default function App() {
   const removePoint = (id: string) => {
     updateActivePath({ points: activePath.points.filter(p => p.id !== id) });
   };
+
+  const clearActivePath = () => {
+    if (!activePath?.points.length) return;
+    setHasInteracted(true);
+    updateActivePath({ points: [] });
+  };
+
+  const undoLastPoint = () => {
+    if (!activePath?.points.length) return;
+    setHasInteracted(true);
+    updateActivePath({ points: activePath.points.slice(0, -1) });
+  };
+
+  const addViewCenterPoint = () => {
+    const pov = globeRef.current?.pointOfView?.();
+    if (!pov || typeof pov.lat !== 'number' || typeof pov.lng !== 'number') return;
+    handlePlacePoint({ lat: pov.lat, lng: pov.lng });
+  };
+
+  const handlePlacePoint = useCallback((coords: { lat: number; lng: number }) => {
+    const now = Date.now();
+    const last = lastPlacedRef.current;
+    if (last && now - last.time < 350 && Math.abs(last.lat - coords.lat) < 0.0002 && Math.abs(last.lng - coords.lng) < 0.0002) {
+      return;
+    }
+    lastPlacedRef.current = { lat: coords.lat, lng: coords.lng, time: now };
+    setIsRotating(false);
+    addPoint({ lat: coords.lat, lng: coords.lng });
+  }, [activePath.points, activePathId]);
 
   // Convert paths into data for Globe
   const globePaths = useMemo(() => {
@@ -563,13 +593,13 @@ export default function App() {
             : "top-0 left-0 h-full border-r transition-all duration-300",
           isMobile
             ? (isSidebarOpen ? "translate-y-0" : "translate-y-[calc(100%-76px)]")
-            : (isSidebarOpen ? "w-[560px]" : "w-0 border-0")
+            : (isSidebarOpen ? "w-[430px]" : "w-0 border-0")
         )}
       >
-        <div className={cn("flex items-center justify-between border-b border-[#2D2D2D] flex-none", isMobile ? "p-4" : "p-8")}>
+        <div className={cn("flex items-center justify-between border-b border-[#2D2D2D] flex-none", isMobile ? "p-4" : "p-5")}>
           <div className="flex min-w-0 items-center gap-2 text-[#F27D26]">
-            <GlobeIcon className="w-8 h-8 animate-pulse" />
-            <span className={cn("font-mono font-bold uppercase text-[#F27D26] truncate", isMobile ? "text-lg tracking-[0.12em]" : "text-2xl tracking-[0.2em]")}>Geodesic Resolver</span>
+            <GlobeIcon className="w-6 h-6" />
+            <span className={cn("font-mono font-semibold uppercase text-[#F27D26] truncate", isMobile ? "text-lg tracking-[0.08em]" : "text-lg tracking-[0.08em]")}>Geodesic Resolver</span>
           </div>
           <button 
             onClick={() => setIsSidebarOpen(false)}
@@ -579,46 +609,72 @@ export default function App() {
           </button>
         </div>
 
-        <div className={cn("flex-1 overflow-y-auto scrollbar-custom", isMobile ? "p-4 space-y-5 pb-24" : "p-8 space-y-9")}>
+        <div className={cn("flex-1 overflow-y-auto scrollbar-custom", isMobile ? "p-4 space-y-4 pb-24" : "p-5 space-y-5")}>
           {/* Engine Controls */}
           <section className="space-y-4">
              <div className={cn("flex gap-3", isMobile ? "flex-col items-stretch" : "items-center justify-between")}>
-               <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Vector Drive</h3>
+               <h3 className="font-mono text-[13px] uppercase opacity-65 tracking-[0.14em]">Map</h3>
                <button 
                  onClick={() => {
                    setHasInteracted(true);
                    setIsRotating(!isRotating);
                  }}
                  className={cn(
-                   "flex items-center gap-2 px-3 py-1.5 rounded-full text-[17px] uppercase font-bold transition-all",
+                   "flex items-center gap-2 px-3 py-1.5 text-[13px] uppercase font-semibold transition-all",
                    isRotating ? "bg-[#F27D26]/20 text-[#F27D26] shadow-[0_0_10px_rgba(242,125,38,0.2)]" : "bg-white/5 text-white/65"
                  )}
                >
                  <RotateCw className={cn("w-5 h-5", isRotating && "animate-spin-slow")} />
-                 {isRotating ? 'Drift Scan ON' : 'Scan Halted'}
+                 {isRotating ? 'Auto-rotate' : 'Rotation paused'}
                </button>
              </div>
           </section>
 
+          <section className="space-y-3">
+            <h3 className="font-mono text-[13px] uppercase opacity-65 tracking-[0.14em]">Plot</h3>
+            <div className="grid grid-cols-4 gap-1">
+              <div className="col-span-4 border border-[#2D2D2D] bg-black/25 px-3 py-3 font-mono text-[13px] uppercase leading-relaxed text-white/60">
+                Click globe to add point. If a tap misses, use Add Center.
+              </div>
+              <button
+                onClick={addViewCenterPoint}
+                className="col-span-2 border border-[#F27D26]/45 bg-[#F27D26]/10 px-3 py-3 text-[13px] font-mono uppercase text-[#ffb84a]"
+              >
+                Add Center
+              </button>
+              <button
+                onClick={undoLastPoint}
+                disabled={!activePath?.points.length}
+                className="border border-[#2D2D2D] px-3 py-3 text-[13px] font-mono uppercase text-white/65 disabled:opacity-25 disabled:hover:border-[#2D2D2D]"
+              >
+                Undo
+              </button>
+              <button
+                onClick={clearActivePath}
+                disabled={!activePath?.points.length}
+                className="border border-[#2D2D2D] px-3 py-3 text-[13px] font-mono uppercase text-white/65 disabled:opacity-25 disabled:hover:border-[#2D2D2D]"
+              >
+                Clear
+              </button>
+            </div>
+          </section>
+
           {/* Display Mode */}
           <section className="space-y-4">
-            <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Display Mode</h3>
+            <h3 className="font-mono text-[13px] uppercase opacity-65 tracking-[0.14em]">Map Style</h3>
             <div className={cn("grid gap-2", isMobile ? "grid-cols-2" : "grid-cols-2")}>
               {Object.entries(globeStyles).map(([key, style]) => (
                 <button
                   key={key}
                   onClick={() => setGlobeStyle(key)}
                   className={cn(
-                    "flex flex-col items-center gap-2 p-6 border rounded-xl transition-all",
+                    "flex items-center justify-center gap-2 px-3 py-3 border transition-all",
                     globeStyle === key 
                       ? "border-[#F27D26] bg-[#F27D26]/5" 
                       : "border-white/5 bg-white/2 hover:border-white/10"
                   )}
                 >
-                  <div className="w-16 h-16 rounded-full border border-white/10 overflow-hidden">
-                    <img src={style.img} alt={style.name} className="w-full h-full object-cover scale-150 rotate-12" />
-                  </div>
-                  <span className={cn("text-[17px] font-mono uppercase tracking-tighter", globeStyle === key ? "text-[#F27D26]" : "text-white/55")}>
+                  <span className={cn("text-[12px] font-mono uppercase tracking-[0.04em]", globeStyle === key ? "text-[#F27D26]" : "text-white/55")}>
                     {style.name}
                   </span>
                 </button>
@@ -628,14 +684,14 @@ export default function App() {
 
           {/* Global Search */}
           <section className="space-y-3">
-            <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Coordinate Search</h3>
+            <h3 className="font-mono text-[13px] uppercase opacity-65 tracking-[0.14em]">Search</h3>
             <form onSubmit={handleSearch} className="relative group">
               <input 
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Resolve coordinate..."
-                className="w-full bg-[#14161B] border border-[#2D2D2D] rounded-2xl px-6 py-6 text-lg font-mono focus:outline-none focus:border-[#F27D26]/60 transition-all placeholder:text-white/55"
+                placeholder="Search city or coordinates..."
+                className="w-full bg-[#14161B] border border-[#2D2D2D] px-4 py-4 text-[15px] font-mono focus:outline-none focus:border-[#F27D26]/60 transition-all placeholder:text-white/55"
               />
               <button 
                 type="submit" 
@@ -658,14 +714,14 @@ export default function App() {
                     <button
                       key={i}
                       onClick={() => selectSearchResult(res)}
-                      className="w-full text-left px-6 py-5 border-b border-[#2D2D2D] hover:bg-white/5 last:border-0 transition-colors text-[17px] font-mono leading-tight"
+                      className="w-full text-left px-4 py-3 border-b border-[#2D2D2D] hover:bg-white/5 last:border-0 transition-colors text-[14px] font-mono leading-tight"
                     >
                       {res.display_name}
                     </button>
                   ))}
                   <button 
                     onClick={() => setSearchResults([])}
-                    className="w-full text-center py-2 opacity-30 hover:opacity-100 flex items-center justify-center gap-2 border-t border-[#2D2D2D] text-[17px] uppercase font-bold"
+                    className="w-full text-center py-2 opacity-50 hover:opacity-100 flex items-center justify-center gap-2 border-t border-[#2D2D2D] text-[13px] uppercase font-semibold"
                   >
                     <X className="w-5 h-5" /> Clear Output
                   </button>
@@ -677,12 +733,12 @@ export default function App() {
           {/* Paths Layer Control */}
           <section className="space-y-4">
             <div className={cn("flex gap-3", isMobile ? "flex-col items-stretch" : "items-center justify-between")}>
-              <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Trace Buffers</h3>
+              <h3 className="font-mono text-[13px] uppercase opacity-65 tracking-[0.14em]">Routes</h3>
               <button 
                 onClick={addNewPath}
-                className="text-[17px] uppercase text-[#F27D26] hover:text-[#F27D26]/80 flex items-center gap-1.5 font-bold tracking-widest"
+                className="text-[13px] uppercase text-[#F27D26] hover:text-[#F27D26]/80 flex items-center gap-1.5 font-semibold tracking-[0.08em]"
               >
-                + New Buffer
+                + New Route
               </button>
             </div>
             <div className="space-y-2">
@@ -691,7 +747,7 @@ export default function App() {
                   key={p.id}
                   onClick={() => setActivePathId(p.id)}
                   className={cn(
-                    "group relative flex flex-col p-8 cursor-pointer border rounded-lg transition-all duration-300",
+                    "group relative flex flex-col p-4 cursor-pointer border transition-all duration-200",
                     activePathId === p.id 
                       ? "bg-[#14161B] border-[#F27D26]/50 shadow-[0_4px_24px_rgba(242,125,38,0.15)] ring-1 ring-[#F27D26]/20" 
                       : "bg-transparent border-[#2D2D2D] hover:border-white/20 hover:bg-white/2"
@@ -744,9 +800,9 @@ export default function App() {
                     )}
                   </div>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-[17px] font-mono opacity-20 uppercase">{p.points.length} nodes locked</span>
+                    <span className="text-[13px] font-mono opacity-50 uppercase">{p.points.length} points</span>
                     {activePathId === p.id && (
-                      <div className="px-2.5 py-1 rounded bg-[#F27D26]/10 text-[17px] font-mono text-[#F27D26] uppercase font-bold tracking-tighter">Active Trace</div>
+                      <div className="px-2 py-1 bg-[#F27D26]/10 text-[12px] font-mono text-[#F27D26] uppercase font-semibold">Active</div>
                     )}
                   </div>
                 </div>
@@ -758,100 +814,100 @@ export default function App() {
 
           {/* Active Settings */}
           {activePath && (
-            <div className="space-y-9 pb-10">
+            <div className="space-y-5 pb-10">
               <section className="space-y-3">
-                <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Arc Solver</h3>
-                <div className="grid grid-cols-1 gap-2">
+                <h3 className="font-mono text-[13px] uppercase opacity-65 tracking-[0.14em]">Path Type</h3>
+                <div className="grid grid-cols-3 gap-1">
                   {[
-                    { val: 'shortest', lab: 'Short Arc', sub: 'Minor arc solution' },
-                    { val: 'longest', lab: 'Long Arc', sub: 'Major arc solution' },
-                    { val: 'full', lab: 'Full Orbit', sub: 'Closed trace solution' }
+                    { val: 'shortest', lab: 'Short', sub: 'Minor' },
+                    { val: 'longest', lab: 'Long', sub: 'Major' },
+                    { val: 'full', lab: 'Loop', sub: 'Closed' }
                   ].map(opt => (
                     <button
                       key={opt.val}
                       onClick={() => updateActivePath({ type: opt.val as PathType })}
                       className={cn(
-                        "flex flex-col items-start px-6 py-5 text-left border transition-all rounded-lg duration-300",
+                        "flex flex-col items-start px-3 py-3 text-left border transition-all duration-200",
                         activePath.type === opt.val 
                           ? "border-[#F27D26] bg-[#F27D26]/10 shadow-[0_0_15px_rgba(242,125,38,0.05)]" 
                           : "border-[#2D2D2D] bg-black/20 hover:border-white/10 hover:bg-white/2"
                       )}
                     >
-                      <span className={cn("text-[17px] font-mono font-bold uppercase tracking-wider", activePath.type === opt.val ? "text-[#F27D26]" : "text-white/65")}>
+                      <span className={cn("text-[13px] font-mono font-semibold uppercase tracking-[0.05em]", activePath.type === opt.val ? "text-[#F27D26]" : "text-white/65")}>
                         {opt.lab}
                       </span>
-                      <span className="text-[17px] font-mono text-white/45 mt-0.5">{opt.sub}</span>
+                      <span className="text-[11px] font-mono text-white/45 mt-0.5">{opt.sub}</span>
                     </button>
                   ))}
                 </div>
               </section>
 
               <section className="space-y-4">
-                <h3 className="font-mono text-[17px] uppercase opacity-75 tracking-[0.2em]">Trace Metrics</h3>
+                <h3 className="font-mono text-[13px] uppercase opacity-75 tracking-[0.14em]">Distance</h3>
                 {activePath.points.length < 2 ? (
                   <div className="border border-dashed border-[#2D2D2D] p-8 text-center rounded-xl bg-black/20">
                     <Info className="w-8 h-8 mx-auto mb-3 text-[#F27D26]/50" />
-                    <p className="text-[17px] font-mono uppercase text-white/50 leading-relaxed">Add two nodes to resolve trace length, arc family, and circumference share.</p>
+                    <p className="text-[14px] font-mono uppercase text-white/55 leading-relaxed">Click the globe or search a place. Two points will calculate distance.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
-                      <div className="rounded-xl border border-[#F27D26]/40 bg-[#F27D26]/10 p-6">
-                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-[#F27D26]/80">Trace Miles</div>
-                        <div className="mt-1 text-5xl font-black text-white">{formatNumber(activePathStats.totalKm * KM_TO_MILES)}</div>
-                        <div className="mt-1 text-[17px] font-mono text-white/55">{formatNumber(activePathStats.totalKm)} km</div>
+                      <div className="border border-[#F27D26]/35 bg-[#F27D26]/8 p-4">
+                        <div className="text-[12px] font-mono uppercase tracking-[0.08em] text-[#F27D26]/80">Miles</div>
+                        <div className="mt-1 text-3xl font-semibold text-white">{formatNumber(activePathStats.totalKm * KM_TO_MILES)}</div>
+                        <div className="mt-1 text-[13px] font-mono text-white/55">{formatNumber(activePathStats.totalKm)} km</div>
                       </div>
-                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-6">
-                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-white/60">Earth Share</div>
-                        <div className="mt-1 text-5xl font-black text-[#F27D26]">{formatNumber((activePathStats.totalKm / EARTH_CIRCUMFERENCE_KM) * 100, 1)}%</div>
-                        <div className="mt-1 text-[17px] font-mono text-white/55">of circumference</div>
-                      </div>
-                    </div>
-
-                    <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
-                      <div className="rounded-xl border border-white/10 bg-black/30 p-6">
-                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-white/55">Nautical Range</div>
-                        <div className="mt-1 text-3xl font-bold text-white">{formatNumber(activePathStats.totalKm * KM_TO_NAUTICAL)}</div>
-                      </div>
-                      <div className="rounded-xl border border-white/10 bg-black/30 p-6">
-                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-white/55">Longest Trace</div>
-                        <div className="mt-1 text-3xl font-bold text-white">{formatNumber(activePathStats.longestKm * KM_TO_MILES)}</div>
-                        <div className="text-[17px] font-mono text-white/45">miles</div>
+                      <div className="border border-white/10 bg-white/[0.03] p-4">
+                        <div className="text-[12px] font-mono uppercase tracking-[0.08em] text-white/60">Earth Share</div>
+                        <div className="mt-1 text-3xl font-semibold text-[#F27D26]">{formatNumber((activePathStats.totalKm / EARTH_CIRCUMFERENCE_KM) * 100, 1)}%</div>
+                        <div className="mt-1 text-[13px] font-mono text-white/55">of circumference</div>
                       </div>
                     </div>
 
                     <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
-                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5">
-                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-emerald-300/75">Land Persistence</div>
-                        <div className="mt-1 text-3xl font-black text-white">{formatNumber(activePathStats.longestLandKm * KM_TO_MILES)}</div>
-                        <div className="text-[17px] font-mono text-white/50">mi / {formatNumber(activePathStats.longestLandKm)} km</div>
+                      <div className="border border-white/10 bg-black/30 p-4">
+                        <div className="text-[12px] font-mono uppercase tracking-[0.08em] text-white/55">Nautical</div>
+                        <div className="mt-1 text-2xl font-semibold text-white">{formatNumber(activePathStats.totalKm * KM_TO_NAUTICAL)}</div>
                       </div>
-                      <div className="rounded-xl border border-sky-400/30 bg-sky-400/10 p-5">
-                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-sky-300/75">Water Persistence</div>
-                        <div className="mt-1 text-3xl font-black text-white">{formatNumber(activePathStats.longestWaterKm * KM_TO_MILES)}</div>
-                        <div className="text-[17px] font-mono text-white/50">mi / {formatNumber(activePathStats.longestWaterKm)} km</div>
+                      <div className="border border-white/10 bg-black/30 p-4">
+                        <div className="text-[12px] font-mono uppercase tracking-[0.08em] text-white/55">Longest Leg</div>
+                        <div className="mt-1 text-2xl font-semibold text-white">{formatNumber(activePathStats.longestKm * KM_TO_MILES)}</div>
+                        <div className="text-[13px] font-mono text-white/45">miles</div>
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-[#2D2D2D] bg-black/25 p-4 text-[14px] font-mono uppercase tracking-[0.16em] text-white/40 leading-relaxed">
-                      Land/water persistence uses a coarse globe land-mask estimate for quick visual planning.
+                    <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
+                      <div className="border border-[#8a5b22]/50 bg-black/25 p-4">
+                        <div className="text-[12px] font-mono uppercase tracking-[0.08em] text-white/55">Longest Land</div>
+                        <div className="mt-1 text-2xl font-semibold text-white">{formatNumber(activePathStats.longestLandKm * KM_TO_MILES)}</div>
+                        <div className="text-[13px] font-mono text-white/50">mi / {formatNumber(activePathStats.longestLandKm)} km</div>
+                      </div>
+                      <div className="border border-[#8a5b22]/50 bg-black/25 p-4">
+                        <div className="text-[12px] font-mono uppercase tracking-[0.08em] text-white/55">Longest Water</div>
+                        <div className="mt-1 text-2xl font-semibold text-white">{formatNumber(activePathStats.longestWaterKm * KM_TO_MILES)}</div>
+                        <div className="text-[13px] font-mono text-white/50">mi / {formatNumber(activePathStats.longestWaterKm)} km</div>
+                      </div>
                     </div>
 
-                    <div className="rounded-xl border border-[#2D2D2D] bg-[#0D0E12] overflow-hidden">
+                    <div className="border border-[#2D2D2D] bg-black/20 p-3 text-[12px] font-mono uppercase tracking-[0.04em] text-white/45 leading-relaxed">
+                      Land/water estimate is coarse; use as a planning aid.
+                    </div>
+
+                    <div className="border border-[#2D2D2D] bg-[#0D0E12] overflow-hidden">
                       {activePathStats.legs.map((leg, idx) => (
-                        <div key={idx} className="p-6 border-b border-[#2D2D2D]/60 last:border-0">
+                        <div key={idx} className="p-4 border-b border-[#2D2D2D]/60 last:border-0">
                           <div className="flex items-center justify-between gap-3">
-                            <span className="text-[17px] font-mono font-bold text-white/80 truncate">Leg {idx + 1}</span>
-                            <span className="text-[17px] font-mono text-[#F27D26] uppercase">{leg.type}</span>
+                            <span className="text-[13px] font-mono font-semibold text-white/80 truncate">Leg {idx + 1}</span>
+                            <span className="text-[12px] font-mono text-[#F27D26] uppercase">{leg.type}</span>
                           </div>
-                          <div className="mt-1 text-[17px] text-white/50 truncate">{leg.label}</div>
+                          <div className="mt-1 text-[13px] text-white/50 truncate">{leg.label}</div>
                           <div className="mt-2 flex items-end justify-between">
-                            <span className="text-3xl font-black text-white">{formatNumber(leg.km * KM_TO_MILES)}</span>
-                            <span className="pb-1 text-[17px] font-mono text-white/55">mi / {formatNumber(leg.km)} km</span>
+                            <span className="text-2xl font-semibold text-white">{formatNumber(leg.km * KM_TO_MILES)}</span>
+                            <span className="pb-1 text-[13px] font-mono text-white/55">mi / {formatNumber(leg.km)} km</span>
                           </div>
-                          <div className="mt-3 grid grid-cols-2 gap-2 text-[14px] font-mono uppercase tracking-[0.12em]">
-                            <span className="rounded bg-emerald-500/10 px-3 py-2 text-emerald-300/75">Land max {formatNumber(leg.longestLandKm * KM_TO_MILES)} mi</span>
-                            <span className="rounded bg-sky-400/10 px-3 py-2 text-sky-300/75">Water max {formatNumber(leg.longestWaterKm * KM_TO_MILES)} mi</span>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] font-mono uppercase tracking-[0.04em]">
+                            <span className="bg-black/30 px-2 py-2 text-white/55">Land max {formatNumber(leg.longestLandKm * KM_TO_MILES)} mi</span>
+                            <span className="bg-black/30 px-2 py-2 text-white/55">Water max {formatNumber(leg.longestWaterKm * KM_TO_MILES)} mi</span>
                           </div>
                         </div>
                       ))}
@@ -861,21 +917,21 @@ export default function App() {
               </section>
 
               <section className="space-y-3">
-                <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Node Telemetry</h3>
+                <h3 className="font-mono text-[13px] uppercase opacity-65 tracking-[0.14em]">Points</h3>
                 <div className={cn("space-y-2 overflow-y-auto pr-2 scrollbar-custom", isMobile ? "max-h-[260px]" : "max-h-[400px]")}>
                   {activePath.points.length === 0 ? (
                     <div className="border border-dashed border-[#2D2D2D] p-10 text-center rounded-xl bg-black/20 group hover:border-[#F27D26]/30 transition-all">
                       <Crosshair className="w-8 h-8 mx-auto mb-3 opacity-10 group-hover:opacity-30 transition-opacity" />
-                      <p className="text-[17px] font-mono uppercase opacity-20 leading-relaxed italic">Node buffer empty. Click globe to designate coordinates or resolve a location above.</p>
+                      <p className="text-[14px] font-mono uppercase opacity-55 leading-relaxed">No points yet. Click a country or ocean on the globe, or search a place above.</p>
                     </div>
                   ) : (
                     activePath.points.map((p, idx) => (
                       <div 
                         key={p.id}
-                        className="group flex flex-col p-8 bg-[#0D0E12] border border-[#2D2D2D] rounded-lg shadow-inner hover:border-[#F27D26]/40 transition-all relative overflow-hidden"
+                        className="group flex flex-col p-4 bg-[#0D0E12] border border-[#2D2D2D] shadow-inner hover:border-[#F27D26]/40 transition-all relative overflow-hidden"
                       >
                         <div className="flex items-center justify-between opacity-50 mb-3 border-b border-[#2D2D2D]/30 pb-2">
-                          <span className="text-[17px] font-black uppercase tracking-[0.2em] text-[#F27D26]">{idx === 0 ? 'Origin Node' : `Vector Node ${idx}`}</span>
+                          <span className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#F27D26]">{idx === 0 ? 'Start' : `Point ${idx + 1}`}</span>
                           <button onClick={() => removePoint(p.id)} className="hover:text-red-500 transition-colors">
                             <Trash2 className="w-5 h-5" />
                           </button>
@@ -883,7 +939,7 @@ export default function App() {
                         {p.name && (
                            <div className="text-[17px] font-bold mb-2 text-white/90 truncate">{p.name}</div>
                         )}
-                        <div className="grid grid-cols-2 gap-6 text-[17px] font-mono bg-black/40 p-3 rounded border border-white/5">
+                        <div className="grid grid-cols-2 gap-4 text-[13px] font-mono bg-black/40 p-3 border border-white/5">
                           <div className="flex flex-col">
                             <span className="text-[17px] opacity-20 uppercase mb-0.5">long</span>
                             <span className="text-[#F27D26]/80">{p.lng.toFixed(5)}°</span>
@@ -903,8 +959,8 @@ export default function App() {
         </div>
 
         <div className={cn("border-t border-[#2D2D2D] text-[11px] text-white/45 font-mono justify-between uppercase tracking-[0.3em] flex-none bg-[#07080A]", isMobile ? "hidden" : "p-6 flex")}>
-          <span>GR-808 // VECTOR TERMINAL</span>
-          <span>TRACE ENGINE IDLE</span>
+          <span>GEODESIC MAP</span>
+          <span>READY</span>
         </div>
       </div>
 
@@ -912,22 +968,22 @@ export default function App() {
       <main
         className={cn(
           "relative flex-1 bg-black overflow-hidden transition-[padding] duration-300",
-          !isMobile && isSidebarOpen ? "pl-[560px]" : "pl-0"
+          !isMobile && isSidebarOpen ? "pl-[430px]" : "pl-0"
         )}
       >
         {/* External Controls Toggle - Responsive to Sidebar */}
         <div 
           className={cn(
             "absolute top-8 z-[900] flex items-center gap-6 pointer-events-none transition-all duration-300",
-            isMobile ? "left-4 top-4" : (isSidebarOpen ? "left-[584px]" : "left-8")
+            isMobile ? "left-4 top-4" : (isSidebarOpen ? "left-[448px]" : "left-8")
           )}
         >
           {!isSidebarOpen && (
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="pointer-events-auto p-6 bg-[#0A0B0E] border border-[#2D2D2D] rounded-full shadow-[0_0_40px_rgba(0,0,0,0.8)] hover:bg-[#14161B] hover:border-[#F27D26]/50 transition-all text-white/65 hover:text-white"
+              className="pointer-events-auto p-4 bg-[#0A0B0E] border border-[#2D2D2D] shadow-[0_0_28px_rgba(0,0,0,0.8)] hover:bg-[#14161B] hover:border-[#F27D26]/50 transition-all text-white/65 hover:text-white"
             >
-              <Menu className="w-8 h-8" />
+              <Menu className="w-6 h-6" />
             </button>
           )}
           
@@ -937,7 +993,7 @@ export default function App() {
               setIsRotating(!isRotating);
             }}
             className={cn(
-              "pointer-events-auto p-6 bg-[#0A0B0E] border border-[#2D2D2D] rounded-full shadow-2xl transition-all group relative overflow-hidden",
+              "pointer-events-auto p-4 bg-[#0A0B0E] border border-[#2D2D2D] shadow-2xl transition-all group relative overflow-hidden",
               isRotating ? "hover:border-[#F27D26]/50" : "hover:border-white/20"
             )}
             title={isRotating ? "Pause Rotation" : "Resume Rotation"}
@@ -968,7 +1024,7 @@ export default function App() {
             backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
             onGlobeReady={handleGlobeReady}
             
-            onGlobeClick={(coords) => addPoint({ lat: coords.lat, lng: coords.lng })}
+            onGlobeClick={(coords) => handlePlacePoint({ lat: coords.lat, lng: coords.lng })}
             
             polygonsData={countries}
             polygonCapMaterial={countryCapMaterial}
@@ -976,7 +1032,8 @@ export default function App() {
             polygonStrokeColor={() => 'rgba(255, 207, 122, 0.82)'}
             polygonAltitude={() => isMobile ? 0.003 : 0.0045}
             polygonCapCurvatureResolution={3}
-            polygonLabel={(d: any) => `<div class="crt-globe-label"><strong>${escapeHtml(d.properties?.name || 'COUNTRY TRACE')}</strong><br/><span>ADMIN OUTLINE LOCKED</span></div>`}
+            polygonLabel={(d: any) => `<div class="crt-globe-label"><strong>${escapeHtml(d.properties?.name || 'COUNTRY')}</strong><br/><span>Click to add point</span></div>`}
+            onPolygonClick={(_polygon: any, _event: MouseEvent, coords: { lat: number; lng: number }) => handlePlacePoint({ lat: coords.lat, lng: coords.lng })}
             polygonsTransitionDuration={0}
             
             pathsData={globePaths}
@@ -1010,10 +1067,10 @@ export default function App() {
           <motion.div
             initial={false}
             animate={{ 
-              scale: hasInteracted ? (isMobile ? 0.45 : 0.6) : (isMobile ? 0.50 : 0.68),
+              scale: hasInteracted ? (isMobile ? 0.32 : 0.38) : (isMobile ? 0.34 : 0.42),
               x: hasInteracted ? (isMobile ? 0 : (window.innerWidth / 2) - 180) : (isMobile ? 0 : (isSidebarOpen ? Math.min(260, window.innerWidth * 0.18) : 0)),
               y: hasInteracted ? (isMobile ? -220 : -(window.innerHeight / 2) + 80) : (isMobile ? -210 : -Math.min(220, window.innerHeight * 0.30)),
-              opacity: hasInteracted ? 1 : 0.62
+              opacity: hasInteracted ? 0.18 : 0.28
             }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
             className="text-center"
@@ -1031,10 +1088,10 @@ export default function App() {
                 className="mt-6 flex flex-col items-center gap-2"
               >
                 <div className={cn("font-mono text-white/50 bg-[#F27D26]/10 backdrop-blur border-x-2 border-[#F27D26]", isMobile ? "text-[12px] tracking-[0.22em] px-4 py-2" : "text-[17px] tracking-[0.5em] px-8 py-3")}>
-                  PHOSPHOR VECTOR GEODESY
+                  GREAT-CIRCLE MAP
                 </div>
                 <div className={cn("font-mono text-[#ffb84a]/70 uppercase mt-2 animate-pulse", isMobile ? "text-[11px] tracking-[0.35em]" : "text-[17px] tracking-[0.82em]")}>
-                  AWAITING VECTOR INPUT
+                  CLICK GLOBE TO ADD POINTS
                 </div>
               </motion.div>
             )}
@@ -1045,24 +1102,24 @@ export default function App() {
         <div className={cn("absolute z-[100] pointer-events-none select-none flex flex-col", isMobile ? "top-4 right-4 items-end gap-2" : "bottom-8 right-8 items-end gap-8")}>
            <div className={cn("gap-6", isMobile ? "hidden" : "flex")}>
               <div className="bg-black/60 border border-white/5 backdrop-blur-xl p-6 px-7 rounded-xl shadow-2xl flex flex-col gap-1 items-end">
-                <span className="text-[17px] text-white/55 uppercase tracking-[0.2em] font-bold">Node Buffer</span>
-                <span className="text-5xl font-mono font-bold text-white leading-none">
+                <span className="text-[12px] text-white/55 uppercase tracking-[0.08em] font-semibold">Points</span>
+                <span className="text-3xl font-mono font-semibold text-white leading-none">
                   {paths.reduce((acc, p) => acc + p.points.length, 0)}
                 </span>
               </div>
               <div className="bg-black/60 border border-white/5 backdrop-blur-xl p-6 px-7 rounded-xl shadow-2xl flex flex-col gap-1 items-end">
-                <span className="text-[17px] text-white/55 uppercase tracking-[0.2em] font-bold">Trace Buffers</span>
-                <span className="text-5xl font-mono font-bold text-[#F27D26] leading-none">{paths.length}</span>
+                <span className="text-[12px] text-white/55 uppercase tracking-[0.08em] font-semibold">Routes</span>
+                <span className="text-3xl font-mono font-semibold text-[#F27D26] leading-none">{paths.length}</span>
               </div>
            </div>
 
            <div className={cn("font-mono uppercase text-white/70 flex items-center bg-black/80 border border-[#2D2D2D] backdrop-blur-2xl rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)]", isMobile ? "hidden" : "text-[17px] tracking-[0.2em] gap-6 px-7 py-6")}>
              <div className="flex items-center gap-2">
                <div className="w-2 h-2 rounded-full bg-[#ffd36e] shadow-[0_0_12px_#ffb84a] animate-pulse" />
-               <span className="font-bold">Trace Engine Ready</span>
+               <span className="font-semibold">Ready</span>
              </div>
              <div className="w-px h-3 bg-white/20" />
-             <span className="opacity-40 text-[17px]">Awaiting Vector Lock</span>
+             <span className="opacity-50 text-[13px]">Click globe to add point</span>
            </div>
         </div>
       </main>
