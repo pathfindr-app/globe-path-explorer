@@ -1,0 +1,6 @@
+{
+  "name": "Globe Path Explorer",
+  "description": "Visualize geodesic (great-circle) paths across the Earth, correctly handling antimeridian crossing and 'around-the-world' routes using OSM and Turf.js.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
