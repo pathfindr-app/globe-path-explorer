@@ -134,14 +134,23 @@ function formatLatLng(lat: number, lng: number) {
   return `${Math.abs(lat).toFixed(5)}° ${latHem}, ${Math.abs(lng).toFixed(5)}° ${lngHem}`;
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export default function App() {
   const globeRef = useRef<any>();
   const [paths, setPaths] = useState<Path[]>([
-    { id: '1', name: 'Path 1', points: [], type: 'shortest', color: '#F27D26' }
+    { id: '1', name: 'TRACE BUFFER 01', points: [], type: 'shortest', color: '#FFB84A' }
   ]);
   const [activePathId, setActivePathId] = useState<string>('1');
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 1024);
   const [isRotating, setIsRotating] = useState(true);
   const [editingPathId, setEditingPathId] = useState<string | null>(null);
   const [newPathName, setNewPathName] = useState('');
@@ -177,7 +186,7 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
 
-  const colors = ['#F27D26', '#3B82F6', '#10B981', '#EF4444', '#A855F7', '#FACC15'];
+  const colors = ['#FFB84A', '#FFD36E', '#C9842E', '#F0A336', '#FFE6A3', '#A9671D'];
 
   const activePath = useMemo(() => 
     paths.find(p => p.id === activePathId) || paths[0], 
@@ -186,7 +195,7 @@ export default function App() {
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
       if (!mobile) setIsSidebarOpen(true);
     };
@@ -254,7 +263,7 @@ export default function App() {
   const removePath = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (paths.length === 1) {
-      setPaths([{ id: '1', name: 'Path 1', points: [], type: 'shortest', color: '#F27D26' }]);
+      setPaths([{ id: '1', name: 'TRACE BUFFER 01', points: [], type: 'shortest', color: '#FFB84A' }]);
       setActivePathId('1');
       return;
     }
@@ -379,7 +388,7 @@ export default function App() {
         pathId: path.id,
         color: path.color,
         active: path.id === activePathId,
-        label: `<div style="font-family: monospace; font-size: 14px; line-height: 1.45;"><strong>${p.name || `${path.name} - ${idx === 0 ? 'Start' : 'Point ' + idx}`}</strong><br/>LAT ${p.lat.toFixed(5)}°<br/>LONG ${p.lng.toFixed(5)}°<br/>${formatLatLng(p.lat, p.lng)}</div>`
+        label: `<div class="crt-globe-label"><strong>${escapeHtml(p.name || `${path.name} - ${idx === 0 ? 'ORIGIN' : 'NODE ' + idx}`)}</strong><br/><span>LAT ${p.lat.toFixed(5)}°</span><br/><span>LONG ${p.lng.toFixed(5)}°</span><br/><em>${formatLatLng(p.lat, p.lng)}</em></div>`
       }))
     );
   }, [paths, activePathId]);
@@ -437,11 +446,11 @@ export default function App() {
   }, [activePath]);
 
   return (
-    <div className="flex h-screen w-full bg-[#050608] font-sans text-white overflow-hidden">
+    <div className="crt-app flex h-screen w-full bg-[#050608] font-sans text-white overflow-hidden">
       {/* Sidebar - Fix position and z-index */}
       <div 
         className={cn(
-          "fixed bg-[#0A0B0E] border-[#2D2D2D] z-[1000] ease-in-out shadow-2xl flex flex-col overflow-hidden",
+          "crt-panel fixed bg-[#0A0B0E] border-[#2D2D2D] z-[1000] ease-in-out shadow-2xl flex flex-col overflow-hidden",
           isMobile
             ? "left-0 right-0 bottom-0 w-full h-[72dvh] max-h-[720px] border-t rounded-t-[28px] transition-transform duration-300"
             : "top-0 left-0 h-full border-r transition-all duration-300",
@@ -459,7 +468,7 @@ export default function App() {
             onClick={() => setIsSidebarOpen(false)}
             className="shrink-0 p-2 hover:bg-white/5 rounded transition-colors text-white/65 hover:text-white"
           >
-            <ChevronRight className="w-8 h-8 rotate-180" />
+            <ChevronRight className={cn("w-8 h-8", isMobile ? "rotate-90" : "rotate-180")} />
           </button>
         </div>
 
@@ -467,7 +476,7 @@ export default function App() {
           {/* Engine Controls */}
           <section className="space-y-4">
              <div className={cn("flex gap-3", isMobile ? "flex-col items-stretch" : "items-center justify-between")}>
-               <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Engine Core</h3>
+               <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Vector Drive</h3>
                <button 
                  onClick={() => {
                    setHasInteracted(true);
@@ -479,14 +488,14 @@ export default function App() {
                  )}
                >
                  <RotateCw className={cn("w-5 h-5", isRotating && "animate-spin-slow")} />
-                 {isRotating ? 'Auto-Rotate ON' : 'Rotation Halted'}
+                 {isRotating ? 'Drift Scan ON' : 'Scan Halted'}
                </button>
              </div>
           </section>
 
-          {/* Globe Configuration */}
+          {/* Display Mode */}
           <section className="space-y-4">
-            <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Globe Configuration</h3>
+            <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Display Mode</h3>
             <div className={cn("grid gap-2", isMobile ? "grid-cols-2" : "grid-cols-2")}>
               {Object.entries(globeStyles).map(([key, style]) => (
                 <button
@@ -512,13 +521,13 @@ export default function App() {
 
           {/* Global Search */}
           <section className="space-y-3">
-            <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">City Index Search</h3>
+            <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Coordinate Search</h3>
             <form onSubmit={handleSearch} className="relative group">
               <input 
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Find location..."
+                placeholder="Resolve coordinate..."
                 className="w-full bg-[#14161B] border border-[#2D2D2D] rounded-2xl px-6 py-6 text-lg font-mono focus:outline-none focus:border-[#F27D26]/60 transition-all placeholder:text-white/55"
               />
               <button 
@@ -551,7 +560,7 @@ export default function App() {
                     onClick={() => setSearchResults([])}
                     className="w-full text-center py-2 opacity-30 hover:opacity-100 flex items-center justify-center gap-2 border-t border-[#2D2D2D] text-[17px] uppercase font-bold"
                   >
-                    <X className="w-5 h-5" /> Dismiss
+                    <X className="w-5 h-5" /> Clear Output
                   </button>
                 </motion.div>
               )}
@@ -561,12 +570,12 @@ export default function App() {
           {/* Paths Layer Control */}
           <section className="space-y-4">
             <div className={cn("flex gap-3", isMobile ? "flex-col items-stretch" : "items-center justify-between")}>
-              <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Route Profiles</h3>
+              <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Trace Buffers</h3>
               <button 
                 onClick={addNewPath}
                 className="text-[17px] uppercase text-[#F27D26] hover:text-[#F27D26]/80 flex items-center gap-1.5 font-bold tracking-widest"
               >
-                + New Profile
+                + New Buffer
               </button>
             </div>
             <div className="space-y-2">
@@ -628,9 +637,9 @@ export default function App() {
                     )}
                   </div>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-[17px] font-mono opacity-20 uppercase">{p.points.length} nodes active</span>
+                    <span className="text-[17px] font-mono opacity-20 uppercase">{p.points.length} nodes locked</span>
                     {activePathId === p.id && (
-                      <div className="px-2.5 py-1 rounded bg-[#F27D26]/10 text-[17px] font-mono text-[#F27D26] uppercase font-bold tracking-tighter">Active Viewport</div>
+                      <div className="px-2.5 py-1 rounded bg-[#F27D26]/10 text-[17px] font-mono text-[#F27D26] uppercase font-bold tracking-tighter">Active Trace</div>
                     )}
                   </div>
                 </div>
@@ -644,12 +653,12 @@ export default function App() {
           {activePath && (
             <div className="space-y-9 pb-10">
               <section className="space-y-3">
-                <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Navigation Logic</h3>
+                <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Arc Solver</h3>
                 <div className="grid grid-cols-1 gap-2">
                   {[
-                    { val: 'shortest', lab: 'Short Arc', sub: 'Standard Geodesic' },
-                    { val: 'longest', lab: 'Long way Around', sub: 'Major Arc Geodesic' },
-                    { val: 'full', lab: 'Full Earth Orbit', sub: 'Infinite Geodesic Loop' }
+                    { val: 'shortest', lab: 'Short Arc', sub: 'Minor arc solution' },
+                    { val: 'longest', lab: 'Long Arc', sub: 'Major arc solution' },
+                    { val: 'full', lab: 'Full Orbit', sub: 'Closed trace solution' }
                   ].map(opt => (
                     <button
                       key={opt.val}
@@ -671,17 +680,17 @@ export default function App() {
               </section>
 
               <section className="space-y-4">
-                <h3 className="font-mono text-[17px] uppercase opacity-75 tracking-[0.2em]">Geodesic Line Stats</h3>
+                <h3 className="font-mono text-[17px] uppercase opacity-75 tracking-[0.2em]">Trace Metrics</h3>
                 {activePath.points.length < 2 ? (
                   <div className="border border-dashed border-[#2D2D2D] p-8 text-center rounded-xl bg-black/20">
                     <Info className="w-8 h-8 mx-auto mb-3 text-[#F27D26]/50" />
-                    <p className="text-[17px] font-mono uppercase text-white/50 leading-relaxed">Add two ocean points to calculate route distance, arc type, and earth-circumference share.</p>
+                    <p className="text-[17px] font-mono uppercase text-white/50 leading-relaxed">Add two nodes to resolve trace length, arc family, and circumference share.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
                       <div className="rounded-xl border border-[#F27D26]/40 bg-[#F27D26]/10 p-6">
-                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-[#F27D26]/80">Total Miles</div>
+                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-[#F27D26]/80">Trace Miles</div>
                         <div className="mt-1 text-5xl font-black text-white">{formatNumber(activePathStats.totalKm * KM_TO_MILES)}</div>
                         <div className="mt-1 text-[17px] font-mono text-white/55">{formatNumber(activePathStats.totalKm)} km</div>
                       </div>
@@ -694,11 +703,11 @@ export default function App() {
 
                     <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
                       <div className="rounded-xl border border-white/10 bg-black/30 p-6">
-                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-white/55">Nautical Miles</div>
+                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-white/55">Nautical Range</div>
                         <div className="mt-1 text-3xl font-bold text-white">{formatNumber(activePathStats.totalKm * KM_TO_NAUTICAL)}</div>
                       </div>
                       <div className="rounded-xl border border-white/10 bg-black/30 p-6">
-                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-white/55">Longest Leg</div>
+                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-white/55">Longest Trace</div>
                         <div className="mt-1 text-3xl font-bold text-white">{formatNumber(activePathStats.longestKm * KM_TO_MILES)}</div>
                         <div className="text-[17px] font-mono text-white/45">miles</div>
                       </div>
@@ -706,19 +715,19 @@ export default function App() {
 
                     <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
                       <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5">
-                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-emerald-300/75">Longest Stretch On Land</div>
+                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-emerald-300/75">Land Persistence</div>
                         <div className="mt-1 text-3xl font-black text-white">{formatNumber(activePathStats.longestLandKm * KM_TO_MILES)}</div>
                         <div className="text-[17px] font-mono text-white/50">mi / {formatNumber(activePathStats.longestLandKm)} km</div>
                       </div>
                       <div className="rounded-xl border border-sky-400/30 bg-sky-400/10 p-5">
-                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-sky-300/75">Longest Stretch On Water</div>
+                        <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-sky-300/75">Water Persistence</div>
                         <div className="mt-1 text-3xl font-black text-white">{formatNumber(activePathStats.longestWaterKm * KM_TO_MILES)}</div>
                         <div className="text-[17px] font-mono text-white/50">mi / {formatNumber(activePathStats.longestWaterKm)} km</div>
                       </div>
                     </div>
 
                     <div className="rounded-xl border border-[#2D2D2D] bg-black/25 p-4 text-[14px] font-mono uppercase tracking-[0.16em] text-white/40 leading-relaxed">
-                      Land/water stretches use a coarse globe land-mask estimate for quick visual planning.
+                      Land/water persistence uses a coarse globe land-mask estimate for quick visual planning.
                     </div>
 
                     <div className="rounded-xl border border-[#2D2D2D] bg-[#0D0E12] overflow-hidden">
@@ -750,7 +759,7 @@ export default function App() {
                   {activePath.points.length === 0 ? (
                     <div className="border border-dashed border-[#2D2D2D] p-10 text-center rounded-xl bg-black/20 group hover:border-[#F27D26]/30 transition-all">
                       <Crosshair className="w-8 h-8 mx-auto mb-3 opacity-10 group-hover:opacity-30 transition-opacity" />
-                      <p className="text-[17px] font-mono uppercase opacity-20 leading-relaxed italic">Point deployment ready. Click globe to designate coordinates or search for cities above.</p>
+                      <p className="text-[17px] font-mono uppercase opacity-20 leading-relaxed italic">Node buffer empty. Click globe to designate coordinates or resolve a location above.</p>
                     </div>
                   ) : (
                     activePath.points.map((p, idx) => (
@@ -759,7 +768,7 @@ export default function App() {
                         className="group flex flex-col p-8 bg-[#0D0E12] border border-[#2D2D2D] rounded-lg shadow-inner hover:border-[#F27D26]/40 transition-all relative overflow-hidden"
                       >
                         <div className="flex items-center justify-between opacity-50 mb-3 border-b border-[#2D2D2D]/30 pb-2">
-                          <span className="text-[17px] font-black uppercase tracking-[0.2em] text-[#F27D26]">{idx === 0 ? 'Origin' : `Nodal Point ${idx}`}</span>
+                          <span className="text-[17px] font-black uppercase tracking-[0.2em] text-[#F27D26]">{idx === 0 ? 'Origin Node' : `Vector Node ${idx}`}</span>
                           <button onClick={() => removePoint(p.id)} className="hover:text-red-500 transition-colors">
                             <Trash2 className="w-5 h-5" />
                           </button>
@@ -769,11 +778,11 @@ export default function App() {
                         )}
                         <div className="grid grid-cols-2 gap-6 text-[17px] font-mono bg-black/40 p-3 rounded border border-white/5">
                           <div className="flex flex-col">
-                            <span className="text-[17px] opacity-20 uppercase mb-0.5">longitude</span>
+                            <span className="text-[17px] opacity-20 uppercase mb-0.5">long</span>
                             <span className="text-[#F27D26]/80">{p.lng.toFixed(5)}°</span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-[17px] opacity-20 uppercase mb-0.5">latitude</span>
+                            <span className="text-[17px] opacity-20 uppercase mb-0.5">lat</span>
                             <span className="text-[#F27D26]/80">{p.lat.toFixed(5)}°</span>
                           </div>
                         </div>
@@ -787,8 +796,8 @@ export default function App() {
         </div>
 
         <div className={cn("border-t border-[#2D2D2D] text-[11px] text-white/45 font-mono justify-between uppercase tracking-[0.3em] flex-none bg-[#07080A]", isMobile ? "hidden" : "p-6 flex")}>
-          <span>Build Sigma-9 // Spherical Grid</span>
-          <span>System Normal</span>
+          <span>GR-808 // VECTOR TERMINAL</span>
+          <span>TRACE ENGINE IDLE</span>
         </div>
       </div>
 
@@ -838,7 +847,7 @@ export default function App() {
         </div>
 
         {/* Globe Viewports */}
-        <div className="absolute inset-0 z-0 select-none">
+        <div className="crt-viewport absolute inset-0 z-0 select-none">
           <Globe
             ref={globeRef}
             globeImageUrl={globeStyles[globeStyle as keyof typeof globeStyles].img}
@@ -850,24 +859,30 @@ export default function App() {
             pathsData={globePaths}
             pathPoints="coords"
             pathColor={(d: any) => d.color}
-            pathDashArray={(d: any) => d.dashed ? [4, 4] : [0, 0]}
-            pathDashLength={2}
-            pathDashGap={1}
-            pathDashAnimateTime={3000}
-            pathStroke={(d: any) => d.active ? 6 : 3}
+            pathDashArray={(d: any) => d.dashed ? [1.5, 2.5] : [0.18, 0.82]}
+            pathDashLength={(d: any) => d.active ? 0.92 : 0.55}
+            pathDashGap={(d: any) => d.dashed ? 0.08 : 0.012}
+            pathDashAnimateTime={(d: any) => d.active ? 4200 : 9000}
+            pathStroke={(d: any) => d.active ? (isMobile ? 4.5 : 5.5) : 2.4}
             pathLabel={(d: any) => d.label}
             
             pointsData={globePoints}
             pointLat="lat"
             pointLng="lng"
             pointColor={(d: any) => d.color}
-            pointRadius={(d: any) => d.active ? 0.72 : 0.38}
-            pointAltitude={0.015}
+            pointRadius={(d: any) => d.active ? (isMobile ? 0.62 : 0.72) : 0.34}
+            pointAltitude={0.018}
             pointLabel="label"
           />
+          <div className="crt-phosphor-bloom" />
+          <div className="crt-scanlines" />
+          <div className="crt-mask" />
+          <div className="crt-vignette" />
+          <div className="crt-roll" />
+          <div className="crt-glass" />
         </div>
 
-        {/* Cinematic HUD Layout */}
+        {/* Terminal Title Layout */}
         <div className="absolute inset-0 z-[100] pointer-events-none select-none flex items-center justify-center">
           <motion.div
             initial={false}
@@ -881,8 +896,8 @@ export default function App() {
             className="text-center"
           >
             <h1 className={cn(
-              "font-black italic tracking-tighter uppercase leading-none transition-all duration-1000",
-              hasInteracted ? "text-5xl text-white/80" : (isMobile ? "text-[clamp(3.1rem,14vw,4.2rem)] text-white drop-shadow-[5px_5px_0px_#F27D26]" : "text-[clamp(4.5rem,7.5vw,7rem)] text-white drop-shadow-[8px_8px_0px_#F27D26]")
+              "crt-hero font-black tracking-[-0.08em] uppercase leading-none transition-all duration-1000",
+              hasInteracted ? "text-5xl text-[#ffc76a]/70" : (isMobile ? "text-[clamp(3.0rem,13vw,4.1rem)] text-[#ffd36e]" : "text-[clamp(4.5rem,7.5vw,7rem)] text-[#ffd36e]")
             )}>
               Geodesic<br/>Resolver
             </h1>
@@ -893,10 +908,10 @@ export default function App() {
                 className="mt-6 flex flex-col items-center gap-2"
               >
                 <div className={cn("font-mono text-white/50 bg-[#F27D26]/10 backdrop-blur border-x-2 border-[#F27D26]", isMobile ? "text-[12px] tracking-[0.22em] px-4 py-2" : "text-[17px] tracking-[0.5em] px-8 py-3")}>
-                  PRECISION SPHERICAL MESHING
+                  PHOSPHOR VECTOR GEODESY
                 </div>
-                <div className={cn("font-mono text-[#F27D26]/40 uppercase mt-2 animate-pulse", isMobile ? "text-[11px] tracking-[0.35em]" : "text-[17px] tracking-[1em]")}>
-                  System Awaiting Input
+                <div className={cn("font-mono text-[#ffb84a]/70 uppercase mt-2 animate-pulse", isMobile ? "text-[11px] tracking-[0.35em]" : "text-[17px] tracking-[0.82em]")}>
+                  AWAITING VECTOR INPUT
                 </div>
               </motion.div>
             )}
@@ -907,24 +922,24 @@ export default function App() {
         <div className={cn("absolute z-[100] pointer-events-none select-none flex flex-col", isMobile ? "top-4 right-4 items-end gap-2" : "bottom-8 right-8 items-end gap-8")}>
            <div className={cn("gap-6", isMobile ? "hidden" : "flex")}>
               <div className="bg-black/60 border border-white/5 backdrop-blur-xl p-6 px-7 rounded-xl shadow-2xl flex flex-col gap-1 items-end">
-                <span className="text-[17px] text-white/55 uppercase tracking-[0.2em] font-bold">Coordinate Buffers</span>
+                <span className="text-[17px] text-white/55 uppercase tracking-[0.2em] font-bold">Node Buffer</span>
                 <span className="text-5xl font-mono font-bold text-white leading-none">
                   {paths.reduce((acc, p) => acc + p.points.length, 0)}
                 </span>
               </div>
               <div className="bg-black/60 border border-white/5 backdrop-blur-xl p-6 px-7 rounded-xl shadow-2xl flex flex-col gap-1 items-end">
-                <span className="text-[17px] text-white/55 uppercase tracking-[0.2em] font-bold">Rastered Paths</span>
+                <span className="text-[17px] text-white/55 uppercase tracking-[0.2em] font-bold">Trace Buffers</span>
                 <span className="text-5xl font-mono font-bold text-[#F27D26] leading-none">{paths.length}</span>
               </div>
            </div>
 
            <div className={cn("font-mono uppercase text-white/70 flex items-center bg-black/80 border border-[#2D2D2D] backdrop-blur-2xl rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)]", isMobile ? "hidden" : "text-[17px] tracking-[0.2em] gap-6 px-7 py-6")}>
              <div className="flex items-center gap-2">
-               <div className="w-2 h-2 rounded-full bg-[#10B981] shadow-[0_0_10px_#10B981] animate-pulse" />
-               <span className="font-bold">Satellite Link Established</span>
+               <div className="w-2 h-2 rounded-full bg-[#ffd36e] shadow-[0_0_12px_#ffb84a] animate-pulse" />
+               <span className="font-bold">Trace Engine Ready</span>
              </div>
              <div className="w-px h-3 bg-white/20" />
-             <span className="opacity-40 text-[17px]">Geodetic Frame 88.4% Nominal</span>
+             <span className="opacity-40 text-[17px]">Awaiting Vector Lock</span>
            </div>
         </div>
       </main>
