@@ -6,8 +6,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Globe from 'react-globe.gl';
 import { calculateGeodesicPath, PathType as BasePathType } from './lib/geodesic';
-import * as turf from '@turf/turf';
 import * as THREE from 'three';
+import { buildLandIndex, calculateSurfaceStats, lineDistanceKm, type LandFeature, type LandIndex } from './lib/routeSurface';
 import { Globe as GlobeIcon, Crosshair, Trash2, MapPin, Layers, Info, ChevronRight, Menu, RotateCw, Search, X, Loader2, Edit2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -56,109 +56,6 @@ function formatNumber(value: number, digits = 0) {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: digits }).format(value);
 }
 
-function lineDistanceKm(coords: [number, number][]) {
-  if (coords.length < 2) return 0;
-  return turf.length(turf.lineString(coords), { units: 'kilometers' });
-}
-
-type SurfaceKind = 'land' | 'water';
-
-interface LandRegion {
-  name: string;
-  minLat: number;
-  maxLat: number;
-  minLng: number;
-  maxLng: number;
-}
-
-const COARSE_LAND_REGIONS: LandRegion[] = [
-  { name: 'North America', minLat: 7, maxLat: 72, minLng: -170, maxLng: -52 },
-  { name: 'Central America', minLat: 5, maxLat: 24, minLng: -118, maxLng: -77 },
-  { name: 'South America', minLat: -56, maxLat: 13, minLng: -82, maxLng: -34 },
-  { name: 'Greenland', minLat: 59, maxLat: 84, minLng: -74, maxLng: -11 },
-  { name: 'Africa', minLat: -35, maxLat: 38, minLng: -18, maxLng: 52 },
-  { name: 'Europe', minLat: 35, maxLat: 72, minLng: -25, maxLng: 45 },
-  { name: 'Asia', minLat: 5, maxLat: 78, minLng: 26, maxLng: 180 },
-  { name: 'Asia West', minLat: 5, maxLat: 78, minLng: -180, maxLng: -168 },
-  { name: 'Australia', minLat: -44, maxLat: -10, minLng: 112, maxLng: 154 },
-  { name: 'New Zealand', minLat: -48, maxLat: -34, minLng: 166, maxLng: 179 },
-  { name: 'Madagascar', minLat: -26, maxLat: -11, minLng: 43, maxLng: 51 },
-  { name: 'Japan', minLat: 30, maxLat: 46, minLng: 129, maxLng: 146 },
-  { name: 'Philippines', minLat: 5, maxLat: 21, minLng: 116, maxLng: 127 },
-  { name: 'Indonesia', minLat: -11, maxLat: 7, minLng: 95, maxLng: 141 },
-  { name: 'Antarctica', minLat: -90, maxLat: -60, minLng: -180, maxLng: 180 },
-];
-
-function normalizeLng(lng: number) {
-  return ((((lng + 180) % 360) + 360) % 360) - 180;
-}
-
-function isLikelyLand(lat: number, lng: number) {
-  const nLng = normalizeLng(lng);
-  return COARSE_LAND_REGIONS.some(region => (
-    lat >= region.minLat &&
-    lat <= region.maxLat &&
-    nLng >= region.minLng &&
-    nLng <= region.maxLng
-  ));
-}
-
-function isLoadedLand(coord: [number, number], landFeatures: CountryFeature[]) {
-  if (!landFeatures.length) return false;
-  const point = turf.point(coord);
-  return landFeatures.some(feature => {
-    try {
-      return turf.booleanPointInPolygon(point, feature as any);
-    } catch {
-      return false;
-    }
-  });
-}
-
-function surfaceKindForCoord(coord: [number, number], landFeatures: CountryFeature[] = []): SurfaceKind {
-  const [lng, lat] = coord;
-  if (landFeatures.length) return isLoadedLand(coord, landFeatures) ? 'land' : 'water';
-  return isLikelyLand(lat, lng) ? 'land' : 'water';
-}
-
-function segmentDistanceKm(a: [number, number], b: [number, number]) {
-  return turf.distance(turf.point(a), turf.point(b), { units: 'kilometers' });
-}
-
-function getSurfaceStretches(coords: [number, number][], landFeatures: CountryFeature[] = []) {
-  let landKm = 0;
-  let waterKm = 0;
-  let longestLandKm = 0;
-  let longestWaterKm = 0;
-  let currentKind: SurfaceKind | null = null;
-  let currentKm = 0;
-
-  for (let i = 1; i < coords.length; i++) {
-    const prev = coords[i - 1];
-    const curr = coords[i];
-    const midpoint: [number, number] = [(prev[0] + curr[0]) / 2, (prev[1] + curr[1]) / 2];
-    const kind = surfaceKindForCoord(midpoint, landFeatures);
-    const km = segmentDistanceKm(prev, curr);
-
-    if (kind === 'land') landKm += km;
-    if (kind === 'water') waterKm += km;
-
-    if (currentKind === kind) {
-      currentKm += km;
-    } else {
-      if (currentKind === 'land') longestLandKm = Math.max(longestLandKm, currentKm);
-      if (currentKind === 'water') longestWaterKm = Math.max(longestWaterKm, currentKm);
-      currentKind = kind;
-      currentKm = km;
-    }
-  }
-
-  if (currentKind === 'land') longestLandKm = Math.max(longestLandKm, currentKm);
-  if (currentKind === 'water') longestWaterKm = Math.max(longestWaterKm, currentKm);
-
-  return { landKm, waterKm, longestLandKm, longestWaterKm };
-}
-
 function formatLatLng(lat: number, lng: number) {
   const latHem = lat >= 0 ? 'N' : 'S';
   const lngHem = lng >= 0 ? 'E' : 'W';
@@ -188,6 +85,8 @@ export default function App() {
   const [newPathName, setNewPathName] = useState('');
   const [hasInteracted, setHasInteracted] = useState(false);
   const [countries, setCountries] = useState<CountryFeature[]>([]);
+  const [osmLandFeatures, setOsmLandFeatures] = useState<LandFeature[]>([]);
+  const [landDataStatus, setLandDataStatus] = useState<'loading' | 'ready' | 'fallback' | 'error'>('loading');
 
   // Globe Styles
   const [globeStyle, setGlobeStyle] = useState('dark');
@@ -248,6 +147,7 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+
     fetch(`${assetBase}countries-110m.geojson`)
       .then(resp => resp.json())
       .then(data => {
@@ -255,10 +155,42 @@ export default function App() {
       })
       .catch(err => console.error('Failed to load country outline layer', err));
 
+    fetch(`${assetBase}land-osm-simplified.geojson`)
+      .then(resp => {
+        if (!resp.ok) throw new Error(`OSM land data failed: ${resp.status}`);
+        return resp.json();
+      })
+      .then(data => {
+        if (cancelled) return;
+        setOsmLandFeatures((data.features || []) as LandFeature[]);
+        setLandDataStatus('ready');
+      })
+      .catch(err => {
+        console.error('Failed to load OSM land precision layer', err);
+        if (!cancelled) setLandDataStatus('fallback');
+      });
+
     return () => {
       cancelled = true;
     };
   }, [assetBase]);
+
+  const countryLandIndex = useMemo<LandIndex | null>(() => {
+    if (!countries.length) return null;
+    return buildLandIndex(countries as unknown as LandFeature[], 10);
+  }, [countries]);
+
+  const osmLandIndex = useMemo<LandIndex | null>(() => {
+    if (!osmLandFeatures.length) return null;
+    return buildLandIndex(osmLandFeatures, 5);
+  }, [osmLandFeatures]);
+
+  const activeLandIndex = osmLandIndex || countryLandIndex;
+  const landSourceLabel = osmLandIndex
+    ? 'OSM coastline polygons · high precision'
+    : countryLandIndex
+      ? 'Country polygons · fallback estimate'
+      : 'Loading coastline data';
 
   const globeMaterial = useMemo(() => {
     const loader = new THREE.TextureLoader();
@@ -459,6 +391,36 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
   // Convert paths into data for Globe
   const globePaths = useMemo(() => {
     const allSegs: any[] = [];
+    const addPathSegments = ({ id, path, coords, km, label, dashed = false }: { id: string; path: Path; coords: [number, number][]; km: number; label: string; dashed?: boolean }) => {
+      const isActive = path.id === activePathId;
+      if (isActive && activeLandIndex) {
+        const surface = calculateSurfaceStats(coords, activeLandIndex);
+        surface.segments.forEach((segment, idx) => {
+          allSegs.push({
+            id: `${id}-${segment.kind}-${idx}`,
+            color: segment.kind === 'land' ? '#fff0b8' : '#4fb5ff',
+            active: isActive,
+            coords: segment.coords.map(c => [c[1], c[0]]),
+            km: segment.km,
+            surfaceKind: segment.kind,
+            label: `${label}<br/>${segment.kind === 'land' ? 'Land' : 'Water'} segment: ${formatNumber(segment.km * KM_TO_MILES)} mi / ${formatNumber(segment.km)} km`,
+            dashed: dashed || segment.kind === 'water'
+          });
+        });
+        return;
+      }
+
+      allSegs.push({
+        id,
+        color: path.color,
+        active: isActive,
+        coords: coords.map(c => [c[1], c[0]]),
+        km,
+        label,
+        dashed
+      });
+    };
+
     paths.forEach(path => {
       // If full orbit mode, and we have at least 2 points, just circle through them
       if (path.type === 'full' && path.points.length >= 2) {
@@ -469,12 +431,12 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
               const coordsShort = calculateGeodesicPath(
                 [start.lng, start.lat],
                 [end.lng, end.lat],
-                { type: 'shortest', npoints: 150 }
+                { type: 'shortest', npoints: 1200 }
               );
               const coordsLong = calculateGeodesicPath(
                 [start.lng, start.lat],
                 [end.lng, end.lat],
-                { type: 'longest', npoints: 150 }
+                { type: 'longest', npoints: 1200 }
               );
               
               const shortKm = lineDistanceKm(coordsShort);
@@ -482,20 +444,17 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
               const startName = start.name || `Point ${i + 1}`;
               const endName = end.name || `Point ${(i + 2) > path.points.length ? 1 : i + 2}`;
               
-              // Standard segments for full orbit
-              allSegs.push({
+              addPathSegments({
                 id: `${path.id}-${i}-s`,
-                color: path.color,
-                active: path.id === activePathId,
-                coords: coordsShort.map(c => [c[1], c[0]]),
+                path,
+                coords: coordsShort,
                 km: shortKm,
                 label: `${path.name}: ${startName} → ${endName}<br/>Short arc: ${formatNumber(shortKm * KM_TO_MILES)} mi / ${formatNumber(shortKm)} km`
               });
-              allSegs.push({
+              addPathSegments({
                 id: `${path.id}-${i}-l`,
-                color: path.color,
-                active: path.id === activePathId,
-                coords: coordsLong.map(c => [c[1], c[0]]),
+                path,
+                coords: coordsLong,
                 km: longKm,
                 label: `${path.name}: ${startName} → ${endName}<br/>Long arc: ${formatNumber(longKm * KM_TO_MILES)} mi / ${formatNumber(longKm)} km`,
                 dashed: true
@@ -511,18 +470,17 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
             const coords = calculateGeodesicPath(
               [start.lng, start.lat],
               [end.lng, end.lat],
-              { type: path.type === 'full' ? 'shortest' : path.type, npoints: 300 }
+              { type: path.type === 'full' ? 'shortest' : path.type, npoints: 1600 }
             );
             const km = lineDistanceKm(coords);
             const startName = start.name || `Point ${i + 1}`;
             const endName = end.name || `Point ${i + 2}`;
             const typeLabel = path.type === 'longest' ? 'Long arc' : 'Short arc';
             
-            allSegs.push({
+            addPathSegments({
               id: `${path.id}-${i}`,
-              color: path.color,
-              active: path.id === activePathId,
-              coords: coords.map(c => [c[1], c[0]]),
+              path,
+              coords,
               km,
               label: `${path.name}: ${startName} → ${endName}<br/>${typeLabel}: ${formatNumber(km * KM_TO_MILES)} mi / ${formatNumber(km)} km`,
               dashed: path.type === 'longest'
@@ -550,10 +508,10 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
 
   const activePathStats = useMemo(() => {
     if (!activePath || activePath.points.length < 2) {
-      return { legs: [], totalKm: 0, landKm: 0, waterKm: 0, landPct: 0, waterPct: 0, longestKm: 0, longestLandKm: 0, longestWaterKm: 0 };
+      return { legs: [], totalKm: 0, landKm: 0, waterKm: 0, landPct: 0, waterPct: 0, longestKm: 0, longestLandKm: 0, longestWaterKm: 0, coastlineCrossings: 0 };
     }
 
-    const legs: { label: string; km: number; type: string; landKm: number; waterKm: number; landPct: number; waterPct: number; longestLandKm: number; longestWaterKm: number }[] = [];
+    const legs: { label: string; km: number; type: string; landKm: number; waterKm: number; landPct: number; waterPct: number; longestLandKm: number; longestWaterKm: number; coastlineCrossings: number }[] = [];
     const legCount = activePath.type === 'full' ? activePath.points.length : activePath.points.length - 1;
 
     for (let i = 0; i < legCount; i++) {
@@ -566,21 +524,23 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
       let waterKm = 0;
       let longestLandKm = 0;
       let longestWaterKm = 0;
+      let coastlineCrossings = 0;
       let typeLabel = activePath.type === 'shortest' ? 'Short arc' : activePath.type === 'longest' ? 'Long arc' : 'Full orbit';
 
       try {
         const coordsSets = activePath.type === 'full'
           ? [
-              calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: 'shortest', npoints: 180 }),
-              calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: 'longest', npoints: 180 })
+              calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: 'shortest', npoints: 1200 }),
+              calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: 'longest', npoints: 1200 })
             ]
-          : [calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: activePath.type, npoints: 300 })];
+          : [calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: activePath.type, npoints: 1600 })];
 
         coordsSets.forEach(coords => {
           km += lineDistanceKm(coords);
-          const surface = getSurfaceStretches(coords, countries);
+          const surface = calculateSurfaceStats(coords, activeLandIndex);
           landKm += surface.landKm;
           waterKm += surface.waterKm;
+          coastlineCrossings += surface.coastlineCrossings;
           longestLandKm = Math.max(longestLandKm, surface.longestLandKm);
           longestWaterKm = Math.max(longestWaterKm, surface.longestWaterKm);
         });
@@ -597,7 +557,8 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
         landPct: km > 0 ? (landKm / km) * 100 : 0,
         waterPct: km > 0 ? (waterKm / km) * 100 : 0,
         longestLandKm,
-        longestWaterKm
+        longestWaterKm,
+        coastlineCrossings
       });
     }
 
@@ -609,8 +570,9 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
     const longestKm = legs.reduce((max, leg) => Math.max(max, leg.km), 0);
     const longestLandKm = legs.reduce((max, leg) => Math.max(max, leg.longestLandKm), 0);
     const longestWaterKm = legs.reduce((max, leg) => Math.max(max, leg.longestWaterKm), 0);
-    return { legs, totalKm, landKm, waterKm, landPct, waterPct, longestKm, longestLandKm, longestWaterKm };
-  }, [activePath, countries]);
+    const coastlineCrossings = legs.reduce((acc, leg) => acc + leg.coastlineCrossings, 0);
+    return { legs, totalKm, landKm, waterKm, landPct, waterPct, longestKm, longestLandKm, longestWaterKm, coastlineCrossings };
+  }, [activePath, activeLandIndex]);
 
   return (
     <div className="crt-app flex h-screen w-full bg-[#050608] font-sans text-white overflow-hidden">
@@ -844,6 +806,10 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
                       <div className="mt-2 h-2 overflow-hidden bg-black/60">
                         <div className="h-full bg-[#ffb84a]" style={{ width: `${Math.max(0, Math.min(100, activePathStats.landPct))}%` }} />
                       </div>
+                      <div className="mt-2 flex items-center justify-between text-[11px] font-mono uppercase tracking-[0.04em] text-white/45">
+                        <span>{landDataStatus === 'ready' ? 'OSM Ready' : landDataStatus === 'loading' ? 'Loading Coastline' : 'Fallback'}</span>
+                        <span>{activePathStats.coastlineCrossings} crossings</span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -920,6 +886,11 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
                         <span>Land {formatNumber(activePathStats.landKm * KM_TO_MILES)} mi</span>
                         <span className="text-right">Water {formatNumber(activePathStats.waterKm * KM_TO_MILES)} mi</span>
                       </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] font-mono uppercase tracking-[0.04em]">
+                        <span className="border border-[#2D2D2D] bg-black/25 px-2 py-2 text-white/55">Crossings {activePathStats.coastlineCrossings}</span>
+                        <span className="border border-[#2D2D2D] bg-black/25 px-2 py-2 text-right text-white/55">{landDataStatus === 'ready' ? 'OSM Ready' : landDataStatus === 'loading' ? 'Loading' : 'Fallback'}</span>
+                      </div>
+                      <div className="mt-2 text-[11px] font-mono uppercase tracking-[0.04em] text-white/40">{landSourceLabel}</div>
                     </div>
 
                     <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
@@ -948,7 +919,7 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
                     </div>
 
                     <div className="border border-[#2D2D2D] bg-black/20 p-3 text-[12px] font-mono uppercase tracking-[0.04em] text-white/45 leading-relaxed">
-                      Land/water estimate is coarse; use as a planning aid.
+                      Land/water uses OSM-derived coastline polygons with dense geodesic sampling. Blue route segments are water; pale segments are land. Full OSM coastline is too large for static delivery, so this uses the highest practical static OSM precision layer.
                     </div>
 
                     <div className="border border-[#2D2D2D] bg-[#0D0E12] overflow-hidden">
@@ -971,6 +942,7 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
                             <span className="bg-black/30 px-2 py-2 text-white/45">Land max {formatNumber(leg.longestLandKm * KM_TO_MILES)} mi</span>
                             <span className="bg-black/30 px-2 py-2 text-white/45">Water max {formatNumber(leg.longestWaterKm * KM_TO_MILES)} mi</span>
                           </div>
+                          <div className="mt-2 bg-black/20 px-2 py-2 text-[12px] font-mono uppercase tracking-[0.04em] text-white/45">Coast crossings {leg.coastlineCrossings}</div>
                         </div>
                       ))}
                     </div>
