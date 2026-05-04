@@ -140,7 +140,8 @@ export default function App() {
     { id: '1', name: 'Path 1', points: [], type: 'shortest', color: '#F27D26' }
   ]);
   const [activePathId, setActivePathId] = useState<string>('1');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [isRotating, setIsRotating] = useState(true);
   const [editingPathId, setEditingPathId] = useState<string | null>(null);
   const [newPathName, setNewPathName] = useState('');
@@ -182,6 +183,18 @@ export default function App() {
     paths.find(p => p.id === activePathId) || paths[0], 
     [paths, activePathId]
   );
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setIsSidebarOpen(true);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (globeRef.current) {
@@ -428,27 +441,32 @@ export default function App() {
       {/* Sidebar - Fix position and z-index */}
       <div 
         className={cn(
-          "fixed top-0 left-0 h-full bg-[#0A0B0E] border-r border-[#2D2D2D] z-[1000] transition-all duration-300 ease-in-out shadow-2xl flex flex-col",
-          isSidebarOpen ? "w-[560px]" : "w-0 overflow-hidden border-0"
+          "fixed bg-[#0A0B0E] border-[#2D2D2D] z-[1000] ease-in-out shadow-2xl flex flex-col overflow-hidden",
+          isMobile
+            ? "left-0 right-0 bottom-0 w-full h-[72dvh] max-h-[720px] border-t rounded-t-[28px] transition-transform duration-300"
+            : "top-0 left-0 h-full border-r transition-all duration-300",
+          isMobile
+            ? (isSidebarOpen ? "translate-y-0" : "translate-y-[calc(100%-76px)]")
+            : (isSidebarOpen ? "w-[560px]" : "w-0 border-0")
         )}
       >
-        <div className="flex items-center justify-between p-8 border-b border-[#2D2D2D] flex-none">
-          <div className="flex items-center gap-2 text-[#F27D26]">
+        <div className={cn("flex items-center justify-between border-b border-[#2D2D2D] flex-none", isMobile ? "p-4" : "p-8")}>
+          <div className="flex min-w-0 items-center gap-2 text-[#F27D26]">
             <GlobeIcon className="w-8 h-8 animate-pulse" />
-            <span className="font-mono text-2xl font-bold tracking-[0.2em] uppercase text-[#F27D26]">Geodesic Resolver</span>
+            <span className={cn("font-mono font-bold uppercase text-[#F27D26] truncate", isMobile ? "text-lg tracking-[0.12em]" : "text-2xl tracking-[0.2em]")}>Geodesic Resolver</span>
           </div>
           <button 
             onClick={() => setIsSidebarOpen(false)}
-            className="p-1.5 hover:bg-white/5 rounded transition-colors text-white/65 hover:text-white"
+            className="shrink-0 p-2 hover:bg-white/5 rounded transition-colors text-white/65 hover:text-white"
           >
             <ChevronRight className="w-8 h-8 rotate-180" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 space-y-9 scrollbar-custom">
+        <div className={cn("flex-1 overflow-y-auto scrollbar-custom", isMobile ? "p-4 space-y-5 pb-24" : "p-8 space-y-9")}>
           {/* Engine Controls */}
           <section className="space-y-4">
-             <div className="flex items-center justify-between">
+             <div className={cn("flex gap-3", isMobile ? "flex-col items-stretch" : "items-center justify-between")}>
                <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Engine Core</h3>
                <button 
                  onClick={() => {
@@ -469,7 +487,7 @@ export default function App() {
           {/* Globe Configuration */}
           <section className="space-y-4">
             <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Globe Configuration</h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div className={cn("grid gap-2", isMobile ? "grid-cols-2" : "grid-cols-2")}>
               {Object.entries(globeStyles).map(([key, style]) => (
                 <button
                   key={key}
@@ -542,7 +560,7 @@ export default function App() {
 
           {/* Paths Layer Control */}
           <section className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className={cn("flex gap-3", isMobile ? "flex-col items-stretch" : "items-center justify-between")}>
               <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Route Profiles</h3>
               <button 
                 onClick={addNewPath}
@@ -661,7 +679,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
                       <div className="rounded-xl border border-[#F27D26]/40 bg-[#F27D26]/10 p-6">
                         <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-[#F27D26]/80">Total Miles</div>
                         <div className="mt-1 text-5xl font-black text-white">{formatNumber(activePathStats.totalKm * KM_TO_MILES)}</div>
@@ -674,7 +692,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
                       <div className="rounded-xl border border-white/10 bg-black/30 p-6">
                         <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-white/55">Nautical Miles</div>
                         <div className="mt-1 text-3xl font-bold text-white">{formatNumber(activePathStats.totalKm * KM_TO_NAUTICAL)}</div>
@@ -686,7 +704,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className={cn("grid gap-3", isMobile ? "grid-cols-1" : "grid-cols-2")}>
                       <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5">
                         <div className="text-[17px] font-mono uppercase tracking-[0.18em] text-emerald-300/75">Longest Stretch On Land</div>
                         <div className="mt-1 text-3xl font-black text-white">{formatNumber(activePathStats.longestLandKm * KM_TO_MILES)}</div>
@@ -728,7 +746,7 @@ export default function App() {
 
               <section className="space-y-3">
                 <h3 className="font-mono text-[17px] uppercase opacity-65 tracking-[0.22em]">Node Telemetry</h3>
-                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 scrollbar-custom">
+                <div className={cn("space-y-2 overflow-y-auto pr-2 scrollbar-custom", isMobile ? "max-h-[260px]" : "max-h-[400px]")}>
                   {activePath.points.length === 0 ? (
                     <div className="border border-dashed border-[#2D2D2D] p-10 text-center rounded-xl bg-black/20 group hover:border-[#F27D26]/30 transition-all">
                       <Crosshair className="w-8 h-8 mx-auto mb-3 opacity-10 group-hover:opacity-30 transition-opacity" />
@@ -768,7 +786,7 @@ export default function App() {
           )}
         </div>
 
-        <div className="p-6 border-t border-[#2D2D2D] text-[11px] text-white/45 font-mono flex justify-between uppercase tracking-[0.3em] flex-none bg-[#07080A]">
+        <div className={cn("border-t border-[#2D2D2D] text-[11px] text-white/45 font-mono justify-between uppercase tracking-[0.3em] flex-none bg-[#07080A]", isMobile ? "hidden" : "p-6 flex")}>
           <span>Build Sigma-9 // Spherical Grid</span>
           <span>System Normal</span>
         </div>
@@ -778,14 +796,14 @@ export default function App() {
       <main
         className={cn(
           "relative flex-1 bg-black overflow-hidden transition-[padding] duration-300",
-          isSidebarOpen ? "pl-[560px]" : "pl-0"
+          !isMobile && isSidebarOpen ? "pl-[560px]" : "pl-0"
         )}
       >
         {/* External Controls Toggle - Responsive to Sidebar */}
         <div 
           className={cn(
             "absolute top-8 z-[900] flex items-center gap-6 pointer-events-none transition-all duration-300",
-            isSidebarOpen ? "left-[584px]" : "left-8"
+            isMobile ? "left-4 top-4" : (isSidebarOpen ? "left-[584px]" : "left-8")
           )}
         >
           {!isSidebarOpen && (
@@ -854,9 +872,9 @@ export default function App() {
           <motion.div
             initial={false}
             animate={{ 
-              scale: hasInteracted ? 0.6 : 1,
-              x: hasInteracted ? (window.innerWidth / 2) - 180 : (isSidebarOpen ? Math.min(180, window.innerWidth * 0.13) : 0),
-              y: hasInteracted ? -(window.innerHeight / 2) + 80 : 0,
+              scale: hasInteracted ? (isMobile ? 0.45 : 0.6) : (isMobile ? 0.62 : 1),
+              x: hasInteracted ? (isMobile ? 0 : (window.innerWidth / 2) - 180) : (isMobile ? 0 : (isSidebarOpen ? Math.min(180, window.innerWidth * 0.13) : 0)),
+              y: hasInteracted ? (isMobile ? -220 : -(window.innerHeight / 2) + 80) : (isMobile ? -120 : 0),
               opacity: 1
             }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
@@ -864,7 +882,7 @@ export default function App() {
           >
             <h1 className={cn(
               "font-black italic tracking-tighter uppercase leading-none transition-all duration-1000",
-              hasInteracted ? "text-5xl text-white/80" : "text-[clamp(4.5rem,7.5vw,7rem)] text-white drop-shadow-[8px_8px_0px_#F27D26]"
+              hasInteracted ? "text-5xl text-white/80" : (isMobile ? "text-[clamp(3.1rem,14vw,4.2rem)] text-white drop-shadow-[5px_5px_0px_#F27D26]" : "text-[clamp(4.5rem,7.5vw,7rem)] text-white drop-shadow-[8px_8px_0px_#F27D26]")
             )}>
               Geodesic<br/>Resolver
             </h1>
@@ -874,10 +892,10 @@ export default function App() {
                 animate={{ opacity: 1 }}
                 className="mt-6 flex flex-col items-center gap-2"
               >
-                <div className="font-mono text-[17px] tracking-[0.5em] text-white/50 bg-[#F27D26]/10 backdrop-blur px-8 py-3 border-x-2 border-[#F27D26]">
+                <div className={cn("font-mono text-white/50 bg-[#F27D26]/10 backdrop-blur border-x-2 border-[#F27D26]", isMobile ? "text-[12px] tracking-[0.22em] px-4 py-2" : "text-[17px] tracking-[0.5em] px-8 py-3")}>
                   PRECISION SPHERICAL MESHING
                 </div>
-                <div className="font-mono text-[17px] text-[#F27D26]/40 uppercase tracking-[1em] mt-2 animate-pulse">
+                <div className={cn("font-mono text-[#F27D26]/40 uppercase mt-2 animate-pulse", isMobile ? "text-[11px] tracking-[0.35em]" : "text-[17px] tracking-[1em]")}>
                   System Awaiting Input
                 </div>
               </motion.div>
@@ -886,8 +904,8 @@ export default function App() {
         </div>
 
         {/* Footer HUD Stats */}
-        <div className="absolute bottom-8 right-8 z-[100] pointer-events-none select-none flex flex-col items-end gap-8">
-           <div className="flex gap-6">
+        <div className={cn("absolute z-[100] pointer-events-none select-none flex flex-col", isMobile ? "top-4 right-4 items-end gap-2" : "bottom-8 right-8 items-end gap-8")}>
+           <div className={cn("gap-6", isMobile ? "hidden" : "flex")}>
               <div className="bg-black/60 border border-white/5 backdrop-blur-xl p-6 px-7 rounded-xl shadow-2xl flex flex-col gap-1 items-end">
                 <span className="text-[17px] text-white/55 uppercase tracking-[0.2em] font-bold">Coordinate Buffers</span>
                 <span className="text-5xl font-mono font-bold text-white leading-none">
@@ -900,7 +918,7 @@ export default function App() {
               </div>
            </div>
 
-           <div className="font-mono text-[17px] uppercase tracking-[0.2em] text-white/70 flex items-center gap-6 bg-black/80 px-7 py-6 border border-[#2D2D2D] backdrop-blur-2xl rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+           <div className={cn("font-mono uppercase text-white/70 flex items-center bg-black/80 border border-[#2D2D2D] backdrop-blur-2xl rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)]", isMobile ? "hidden" : "text-[17px] tracking-[0.2em] gap-6 px-7 py-6")}>
              <div className="flex items-center gap-2">
                <div className="w-2 h-2 rounded-full bg-[#10B981] shadow-[0_0_10px_#10B981] animate-pulse" />
                <span className="font-bold">Satellite Link Established</span>
@@ -932,10 +950,20 @@ export default function App() {
         .scrollbar-custom::-webkit-scrollbar-thumb:hover {
           background: rgba(242, 125, 38, 0.4);
         }
+        html, body, #root {
+          width: 100%;
+          max-width: 100%;
+          overflow: hidden;
+        }
         body {
           background: black;
           color: white;
           overflow: hidden;
+        }
+        @media (max-width: 767px) {
+          * {
+            box-sizing: border-box;
+          }
         }
       `}} />
     </div>
