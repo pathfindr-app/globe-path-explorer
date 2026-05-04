@@ -262,38 +262,38 @@ export default function App() {
       <div 
         className={cn(
           "fixed top-0 left-0 h-full bg-[#0A0B0E] border-r border-[#2D2D2D] z-[1000] transition-all duration-300 ease-in-out shadow-2xl flex flex-col",
-          isSidebarOpen ? "w-[320px]" : "w-0 overflow-hidden border-0"
+          isSidebarOpen ? "w-[440px]" : "w-0 overflow-hidden border-0"
         )}
       >
-        <div className="flex items-center justify-between p-4 border-b border-[#2D2D2D] flex-none">
+        <div className="flex items-center justify-between p-5 border-b border-[#2D2D2D] flex-none">
           <div className="flex items-center gap-2 text-[#F27D26]">
-            <GlobeIcon className="w-5 h-5 animate-pulse" />
-            <span className="font-mono text-sm font-bold tracking-[0.2em] uppercase text-[#F27D26]">Sphere Resolve</span>
+            <GlobeIcon className="w-7 h-7 animate-pulse" />
+            <span className="font-mono text-lg font-bold tracking-[0.2em] uppercase text-[#F27D26]">Sphere Resolve</span>
           </div>
           <button 
             onClick={() => setIsSidebarOpen(false)}
-            className="p-1.5 hover:bg-white/5 rounded transition-colors text-white/40 hover:text-white"
+            className="p-1.5 hover:bg-white/5 rounded transition-colors text-white/65 hover:text-white"
           >
-            <ChevronRight className="w-5 h-5 rotate-180" />
+            <ChevronRight className="w-7 h-7 rotate-180" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-8 scrollbar-custom">
+        <div className="flex-1 overflow-y-auto p-5 space-y-7 scrollbar-custom">
           {/* Engine Controls */}
           <section className="space-y-4">
              <div className="flex items-center justify-between">
-               <h3 className="font-mono text-[9px] uppercase opacity-40 tracking-[0.3em]">Engine Core</h3>
+               <h3 className="font-mono text-[12px] uppercase opacity-65 tracking-[0.22em]">Engine Core</h3>
                <button 
                  onClick={() => {
                    setHasInteracted(true);
                    setIsRotating(!isRotating);
                  }}
                  className={cn(
-                   "flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] uppercase font-bold transition-all",
-                   isRotating ? "bg-[#F27D26]/20 text-[#F27D26] shadow-[0_0_10px_rgba(242,125,38,0.2)]" : "bg-white/5 text-white/40"
+                   "flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] uppercase font-bold transition-all",
+                   isRotating ? "bg-[#F27D26]/20 text-[#F27D26] shadow-[0_0_10px_rgba(242,125,38,0.2)]" : "bg-white/5 text-white/65"
                  )}
                >
-                 <RotateCw className={cn("w-3 h-3", isRotating && "animate-spin-slow")} />
+                 <RotateCw className={cn("w-5 h-5", isRotating && "animate-spin-slow")} />
                  {isRotating ? 'Auto-Rotate ON' : 'Rotation Halted'}
                </button>
              </div>
@@ -301,23 +301,23 @@ export default function App() {
 
           {/* Globe Configuration */}
           <section className="space-y-4">
-            <h3 className="font-mono text-[9px] uppercase opacity-40 tracking-[0.3em]">Globe Configuration</h3>
+            <h3 className="font-mono text-[12px] uppercase opacity-65 tracking-[0.22em]">Globe Configuration</h3>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(globeStyles).map(([key, style]) => (
                 <button
                   key={key}
                   onClick={() => setGlobeStyle(key)}
                   className={cn(
-                    "flex flex-col items-center gap-2 p-3 border rounded-lg transition-all",
+                    "flex flex-col items-center gap-2 p-4 border rounded-xl transition-all",
                     globeStyle === key 
                       ? "border-[#F27D26] bg-[#F27D26]/5" 
                       : "border-white/5 bg-white/2 hover:border-white/10"
                   )}
                 >
-                  <div className="w-8 h-8 rounded-full border border-white/10 overflow-hidden">
+                  <div className="w-12 h-12 rounded-full border border-white/10 overflow-hidden">
                     <img src={style.img} alt={style.name} className="w-full h-full object-cover scale-150 rotate-12" />
                   </div>
-                  <span className={cn("text-[8px] font-mono uppercase tracking-tighter", globeStyle === key ? "text-[#F27D26]" : "text-white/30")}>
+                  <span className={cn("text-[14px] font-mono uppercase tracking-tighter", globeStyle === key ? "text-[#F27D26]" : "text-white/55")}>
                     {style.name}
                   </span>
                 </button>
@@ -327,21 +327,21 @@ export default function App() {
 
           {/* Global Search */}
           <section className="space-y-3">
-            <h3 className="font-mono text-[9px] uppercase opacity-40 tracking-[0.3em]">City Index Search</h3>
+            <h3 className="font-mono text-[12px] uppercase opacity-65 tracking-[0.22em]">City Index Search</h3>
             <form onSubmit={handleSearch} className="relative group">
               <input 
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Find location..."
-                className="w-full bg-[#14161B] border border-[#2D2D2D] rounded-lg px-4 py-3 text-xs font-mono focus:outline-none focus:border-[#F27D26]/60 transition-all placeholder:text-white/10"
+                className="w-full bg-[#14161B] border border-[#2D2D2D] rounded-xl px-5 py-4 text-sm font-mono focus:outline-none focus:border-[#F27D26]/60 transition-all placeholder:text-white/55"
               />
               <button 
                 type="submit" 
                 disabled={isSearching}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-[#F27D26] hover:text-white transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/45 group-focus-within:text-[#F27D26] hover:text-white transition-colors"
               >
-                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                {isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
               </button>
             </form>
             
@@ -357,16 +357,16 @@ export default function App() {
                     <button
                       key={i}
                       onClick={() => selectSearchResult(res)}
-                      className="w-full text-left px-4 py-3 border-b border-[#2D2D2D] hover:bg-white/5 last:border-0 transition-colors text-[10px] font-mono leading-tight"
+                      className="w-full text-left px-5 py-4 border-b border-[#2D2D2D] hover:bg-white/5 last:border-0 transition-colors text-[13px] font-mono leading-tight"
                     >
                       {res.display_name}
                     </button>
                   ))}
                   <button 
                     onClick={() => setSearchResults([])}
-                    className="w-full text-center py-2 opacity-30 hover:opacity-100 flex items-center justify-center gap-2 border-t border-[#2D2D2D] text-[9px] uppercase font-bold"
+                    className="w-full text-center py-2 opacity-30 hover:opacity-100 flex items-center justify-center gap-2 border-t border-[#2D2D2D] text-[12px] uppercase font-bold"
                   >
-                    <X className="w-3 h-3" /> Dismiss
+                    <X className="w-5 h-5" /> Dismiss
                   </button>
                 </motion.div>
               )}
@@ -376,10 +376,10 @@ export default function App() {
           {/* Paths Layer Control */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-mono text-[9px] uppercase opacity-40 tracking-[0.3em]">Route Profiles</h3>
+              <h3 className="font-mono text-[12px] uppercase opacity-65 tracking-[0.22em]">Route Profiles</h3>
               <button 
                 onClick={addNewPath}
-                className="text-[9px] uppercase text-[#F27D26] hover:text-[#F27D26]/80 flex items-center gap-1.5 font-bold tracking-widest"
+                className="text-[12px] uppercase text-[#F27D26] hover:text-[#F27D26]/80 flex items-center gap-1.5 font-bold tracking-widest"
               >
                 + New Profile
               </button>
@@ -390,7 +390,7 @@ export default function App() {
                   key={p.id}
                   onClick={() => setActivePathId(p.id)}
                   className={cn(
-                    "group relative flex flex-col p-4 cursor-pointer border rounded-lg transition-all duration-300",
+                    "group relative flex flex-col p-5 cursor-pointer border rounded-lg transition-all duration-300",
                     activePathId === p.id 
                       ? "bg-[#14161B] border-[#F27D26]/50 shadow-[0_4px_24px_rgba(242,125,38,0.15)] ring-1 ring-[#F27D26]/20" 
                       : "bg-transparent border-[#2D2D2D] hover:border-white/20 hover:bg-white/2"
@@ -398,7 +398,7 @@ export default function App() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_currentColor]" style={{ color: p.color, backgroundColor: p.color }} />
+                      <div className="w-5 h-5 rounded-full shadow-[0_0_8px_currentColor]" style={{ color: p.color, backgroundColor: p.color }} />
                       
                       {editingPathId === p.id ? (
                         <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -407,15 +407,15 @@ export default function App() {
                             value={newPathName}
                             onChange={e => setNewPathName(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && renamePath(p.id)}
-                            className="bg-[#0A0B0E] border border-[#2D2D2D] rounded px-2 py-0.5 text-xs text-white font-mono w-32 focus:outline-none focus:border-[#F27D26]/50"
+                            className="bg-[#0A0B0E] border border-[#2D2D2D] rounded px-2 py-0.5 text-sm text-white font-mono w-32 focus:outline-none focus:border-[#F27D26]/50"
                           />
                           <button onClick={() => renamePath(p.id)} className="text-[#10B981] hover:brightness-125">
-                            <Check className="w-3.5 h-3.5" />
+                            <Check className="w-5 h-5" />
                           </button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <span className={cn("text-[11px] font-bold font-mono tracking-tight", activePathId === p.id ? "text-white" : "text-white/40")}>
+                          <span className={cn("text-[14px] font-bold font-mono tracking-tight", activePathId === p.id ? "text-white" : "text-white/65")}>
                             {p.name.toUpperCase()}
                           </span>
                           {activePathId === p.id && (
@@ -425,9 +425,9 @@ export default function App() {
                                 setEditingPathId(p.id);
                                 setNewPathName(p.name);
                               }}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-white/20 hover:text-white transition-opacity"
+                              className="opacity-0 group-hover:opacity-100 p-1 text-white/45 hover:text-white transition-opacity"
                             >
-                              <Edit2 className="w-3 h-3" />
+                              <Edit2 className="w-5 h-5" />
                             </button>
                           )}
                         </div>
@@ -436,16 +436,16 @@ export default function App() {
                     {paths.length > 1 && (
                       <button 
                         onClick={(e) => removePath(p.id, e)}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-white/10 hover:text-red-500 transition-all transform hover:scale-110"
+                        className="opacity-0 group-hover:opacity-100 p-1 text-white/55 hover:text-red-500 transition-all transform hover:scale-110"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-5 h-5" />
                       </button>
                     )}
                   </div>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-[9px] font-mono opacity-20 uppercase">{p.points.length} nodes active</span>
+                    <span className="text-[12px] font-mono opacity-20 uppercase">{p.points.length} nodes active</span>
                     {activePathId === p.id && (
-                      <div className="px-1.5 py-0.5 rounded bg-[#F27D26]/10 text-[8px] font-mono text-[#F27D26] uppercase font-bold tracking-tighter">Active Viewport</div>
+                      <div className="px-2.5 py-1 rounded bg-[#F27D26]/10 text-[14px] font-mono text-[#F27D26] uppercase font-bold tracking-tighter">Active Viewport</div>
                     )}
                   </div>
                 </div>
@@ -459,7 +459,7 @@ export default function App() {
           {activePath && (
             <div className="space-y-8 pb-10">
               <section className="space-y-3">
-                <h3 className="font-mono text-[9px] uppercase opacity-40 tracking-[0.3em]">Navigation Logic</h3>
+                <h3 className="font-mono text-[12px] uppercase opacity-65 tracking-[0.22em]">Navigation Logic</h3>
                 <div className="grid grid-cols-1 gap-2">
                   {[
                     { val: 'shortest', lab: 'Short Arc', sub: 'Standard Geodesic' },
@@ -470,51 +470,51 @@ export default function App() {
                       key={opt.val}
                       onClick={() => updateActivePath({ type: opt.val as PathType })}
                       className={cn(
-                        "flex flex-col items-start px-4 py-3 text-left border transition-all rounded-lg duration-300",
+                        "flex flex-col items-start px-5 py-4 text-left border transition-all rounded-lg duration-300",
                         activePath.type === opt.val 
                           ? "border-[#F27D26] bg-[#F27D26]/10 shadow-[0_0_15px_rgba(242,125,38,0.05)]" 
                           : "border-[#2D2D2D] bg-black/20 hover:border-white/10 hover:bg-white/2"
                       )}
                     >
-                      <span className={cn("text-[10px] font-mono font-bold uppercase tracking-wider", activePath.type === opt.val ? "text-[#F27D26]" : "text-white/40")}>
+                      <span className={cn("text-[13px] font-mono font-bold uppercase tracking-wider", activePath.type === opt.val ? "text-[#F27D26]" : "text-white/65")}>
                         {opt.lab}
                       </span>
-                      <span className="text-[8px] font-mono text-white/20 mt-0.5">{opt.sub}</span>
+                      <span className="text-[14px] font-mono text-white/45 mt-0.5">{opt.sub}</span>
                     </button>
                   ))}
                 </div>
               </section>
 
               <section className="space-y-3">
-                <h3 className="font-mono text-[9px] uppercase opacity-40 tracking-[0.3em]">Node Telemetry</h3>
+                <h3 className="font-mono text-[12px] uppercase opacity-65 tracking-[0.22em]">Node Telemetry</h3>
                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 scrollbar-custom">
                   {activePath.points.length === 0 ? (
-                    <div className="border border-dashed border-[#2D2D2D] p-8 text-center rounded-xl bg-black/20 group hover:border-[#F27D26]/30 transition-all">
-                      <Crosshair className="w-6 h-6 mx-auto mb-3 opacity-10 group-hover:opacity-30 transition-opacity" />
-                      <p className="text-[9px] font-mono uppercase opacity-20 leading-relaxed italic">Point deployment ready. Click globe to designate coordinates or search for cities above.</p>
+                    <div className="border border-dashed border-[#2D2D2D] p-9 text-center rounded-xl bg-black/20 group hover:border-[#F27D26]/30 transition-all">
+                      <Crosshair className="w-8 h-8 mx-auto mb-3 opacity-10 group-hover:opacity-30 transition-opacity" />
+                      <p className="text-[12px] font-mono uppercase opacity-20 leading-relaxed italic">Point deployment ready. Click globe to designate coordinates or search for cities above.</p>
                     </div>
                   ) : (
                     activePath.points.map((p, idx) => (
                       <div 
                         key={p.id}
-                        className="group flex flex-col p-4 bg-[#0D0E12] border border-[#2D2D2D] rounded-lg shadow-inner hover:border-[#F27D26]/40 transition-all relative overflow-hidden"
+                        className="group flex flex-col p-5 bg-[#0D0E12] border border-[#2D2D2D] rounded-lg shadow-inner hover:border-[#F27D26]/40 transition-all relative overflow-hidden"
                       >
                         <div className="flex items-center justify-between opacity-50 mb-3 border-b border-[#2D2D2D]/30 pb-2">
-                          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#F27D26]">{idx === 0 ? 'Origin' : `Nodal Point ${idx}`}</span>
+                          <span className="text-[12px] font-black uppercase tracking-[0.2em] text-[#F27D26]">{idx === 0 ? 'Origin' : `Nodal Point ${idx}`}</span>
                           <button onClick={() => removePoint(p.id)} className="hover:text-red-500 transition-colors">
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-5 h-5" />
                           </button>
                         </div>
                         {p.name && (
-                           <div className="text-[11px] font-bold mb-2 text-white/90 truncate">{p.name}</div>
+                           <div className="text-[14px] font-bold mb-2 text-white/90 truncate">{p.name}</div>
                         )}
-                        <div className="grid grid-cols-2 gap-4 text-[10px] font-mono bg-black/40 p-2 rounded border border-white/5">
+                        <div className="grid grid-cols-2 gap-4 text-[14px] font-mono bg-black/40 p-3 rounded border border-white/5">
                           <div className="flex flex-col">
-                            <span className="text-[8px] opacity-20 uppercase mb-0.5">longitude</span>
+                            <span className="text-[14px] opacity-20 uppercase mb-0.5">longitude</span>
                             <span className="text-[#F27D26]/80">{p.lng.toFixed(5)}°</span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-[8px] opacity-20 uppercase mb-0.5">latitude</span>
+                            <span className="text-[14px] opacity-20 uppercase mb-0.5">latitude</span>
                             <span className="text-[#F27D26]/80">{p.lat.toFixed(5)}°</span>
                           </div>
                         </div>
@@ -527,7 +527,7 @@ export default function App() {
           )}
         </div>
 
-        <div className="p-5 border-t border-[#2D2D2D] text-[8px] text-white/10 font-mono flex justify-between uppercase tracking-[0.3em] flex-none bg-[#07080A]">
+        <div className="p-5 border-t border-[#2D2D2D] text-[11px] text-white/45 font-mono flex justify-between uppercase tracking-[0.3em] flex-none bg-[#07080A]">
           <span>Build Sigma-9 // Spherical Grid</span>
           <span>System Normal</span>
         </div>
@@ -539,15 +539,15 @@ export default function App() {
         <div 
           className={cn(
             "absolute top-8 z-[900] flex items-center gap-4 pointer-events-none transition-all duration-300",
-            isSidebarOpen ? "left-[340px]" : "left-8"
+            isSidebarOpen ? "left-[464px]" : "left-8"
           )}
         >
           {!isSidebarOpen && (
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="pointer-events-auto p-3 bg-[#0A0B0E] border border-[#2D2D2D] rounded-full shadow-[0_0_40px_rgba(0,0,0,0.8)] hover:bg-[#14161B] hover:border-[#F27D26]/50 transition-all text-white/40 hover:text-white"
+              className="pointer-events-auto p-4 bg-[#0A0B0E] border border-[#2D2D2D] rounded-full shadow-[0_0_40px_rgba(0,0,0,0.8)] hover:bg-[#14161B] hover:border-[#F27D26]/50 transition-all text-white/65 hover:text-white"
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-7 h-7" />
             </button>
           )}
           
@@ -557,7 +557,7 @@ export default function App() {
               setIsRotating(!isRotating);
             }}
             className={cn(
-              "pointer-events-auto p-3 bg-[#0A0B0E] border border-[#2D2D2D] rounded-full shadow-2xl transition-all group relative overflow-hidden",
+              "pointer-events-auto p-4 bg-[#0A0B0E] border border-[#2D2D2D] rounded-full shadow-2xl transition-all group relative overflow-hidden",
               isRotating ? "hover:border-[#F27D26]/50" : "hover:border-white/20"
             )}
             title={isRotating ? "Pause Rotation" : "Resume Rotation"}
@@ -567,8 +567,8 @@ export default function App() {
               isRotating ? "opacity-100" : "opacity-0"
             )} />
             <RotateCw className={cn(
-              "w-5 h-5 transition-all duration-700",
-              isRotating ? "text-[#F27D26] animate-spin-slow" : "text-white/20 rotate-45"
+              "w-6 h-6 transition-all duration-700",
+              isRotating ? "text-[#F27D26] animate-spin-slow" : "text-white/45 rotate-45"
             )} />
           </button>
         </div>
@@ -627,10 +627,10 @@ export default function App() {
                 animate={{ opacity: 1 }}
                 className="mt-6 flex flex-col items-center gap-2"
               >
-                <div className="font-mono text-[11px] tracking-[0.5em] text-white/50 bg-[#F27D26]/10 backdrop-blur px-8 py-3 border-x-2 border-[#F27D26]">
+                <div className="font-mono text-[14px] tracking-[0.5em] text-white/50 bg-[#F27D26]/10 backdrop-blur px-8 py-3 border-x-2 border-[#F27D26]">
                   PRECISION SPHERICAL MESHING
                 </div>
-                <div className="font-mono text-[9px] text-[#F27D26]/40 uppercase tracking-[1em] mt-2 animate-pulse">
+                <div className="font-mono text-[12px] text-[#F27D26]/40 uppercase tracking-[1em] mt-2 animate-pulse">
                   System Awaiting Input
                 </div>
               </motion.div>
@@ -639,27 +639,27 @@ export default function App() {
         </div>
 
         {/* Footer HUD Stats */}
-        <div className="absolute bottom-10 right-10 z-[100] pointer-events-none select-none flex flex-col items-end gap-6">
+        <div className="absolute bottom-8 right-8 z-[100] pointer-events-none select-none flex flex-col items-end gap-6">
            <div className="flex gap-4">
-              <div className="bg-black/60 border border-white/5 backdrop-blur-xl p-4 px-6 rounded-lg shadow-2xl flex flex-col gap-1 items-end">
-                <span className="text-[8px] text-white/30 uppercase tracking-[0.2em] font-bold">Coordinate Buffers</span>
-                <span className="text-2xl font-mono font-bold text-white leading-none">
+              <div className="bg-black/60 border border-white/5 backdrop-blur-xl p-5 px-7 rounded-xl shadow-2xl flex flex-col gap-1 items-end">
+                <span className="text-[14px] text-white/55 uppercase tracking-[0.2em] font-bold">Coordinate Buffers</span>
+                <span className="text-3xl font-mono font-bold text-white leading-none">
                   {paths.reduce((acc, p) => acc + p.points.length, 0)}
                 </span>
               </div>
-              <div className="bg-black/60 border border-white/5 backdrop-blur-xl p-4 px-6 rounded-lg shadow-2xl flex flex-col gap-1 items-end">
-                <span className="text-[8px] text-white/30 uppercase tracking-[0.2em] font-bold">Rastered Paths</span>
-                <span className="text-2xl font-mono font-bold text-[#F27D26] leading-none">{paths.length}</span>
+              <div className="bg-black/60 border border-white/5 backdrop-blur-xl p-5 px-7 rounded-xl shadow-2xl flex flex-col gap-1 items-end">
+                <span className="text-[14px] text-white/55 uppercase tracking-[0.2em] font-bold">Rastered Paths</span>
+                <span className="text-3xl font-mono font-bold text-[#F27D26] leading-none">{paths.length}</span>
               </div>
            </div>
 
-           <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/70 flex items-center gap-4 bg-black/80 px-6 py-4 border border-[#2D2D2D] backdrop-blur-2xl rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+           <div className="font-mono text-[13px] uppercase tracking-[0.2em] text-white/70 flex items-center gap-4 bg-black/80 px-7 py-5 border border-[#2D2D2D] backdrop-blur-2xl rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
              <div className="flex items-center gap-2">
                <div className="w-2 h-2 rounded-full bg-[#10B981] shadow-[0_0_10px_#10B981] animate-pulse" />
                <span className="font-bold">Satellite Link Established</span>
              </div>
              <div className="w-px h-3 bg-white/20" />
-             <span className="opacity-40 text-[9px]">Geodetic Frame 88.4% Nominal</span>
+             <span className="opacity-40 text-[12px]">Geodetic Frame 88.4% Nominal</span>
            </div>
         </div>
       </main>
