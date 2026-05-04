@@ -103,8 +103,21 @@ function isLikelyLand(lat: number, lng: number) {
   ));
 }
 
-function surfaceKindForCoord(coord: [number, number]): SurfaceKind {
+function isLoadedLand(coord: [number, number], landFeatures: CountryFeature[]) {
+  if (!landFeatures.length) return false;
+  const point = turf.point(coord);
+  return landFeatures.some(feature => {
+    try {
+      return turf.booleanPointInPolygon(point, feature as any);
+    } catch {
+      return false;
+    }
+  });
+}
+
+function surfaceKindForCoord(coord: [number, number], landFeatures: CountryFeature[] = []): SurfaceKind {
   const [lng, lat] = coord;
+  if (landFeatures.length) return isLoadedLand(coord, landFeatures) ? 'land' : 'water';
   return isLikelyLand(lat, lng) ? 'land' : 'water';
 }
 
@@ -112,7 +125,7 @@ function segmentDistanceKm(a: [number, number], b: [number, number]) {
   return turf.distance(turf.point(a), turf.point(b), { units: 'kilometers' });
 }
 
-function getSurfaceStretches(coords: [number, number][]) {
+function getSurfaceStretches(coords: [number, number][], landFeatures: CountryFeature[] = []) {
   let landKm = 0;
   let waterKm = 0;
   let longestLandKm = 0;
@@ -124,7 +137,7 @@ function getSurfaceStretches(coords: [number, number][]) {
     const prev = coords[i - 1];
     const curr = coords[i];
     const midpoint: [number, number] = [(prev[0] + curr[0]) / 2, (prev[1] + curr[1]) / 2];
-    const kind = surfaceKindForCoord(midpoint);
+    const kind = surfaceKindForCoord(midpoint, landFeatures);
     const km = segmentDistanceKm(prev, curr);
 
     if (kind === 'land') landKm += km;
@@ -565,7 +578,7 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
 
         coordsSets.forEach(coords => {
           km += lineDistanceKm(coords);
-          const surface = getSurfaceStretches(coords);
+          const surface = getSurfaceStretches(coords, countries);
           landKm += surface.landKm;
           waterKm += surface.waterKm;
           longestLandKm = Math.max(longestLandKm, surface.longestLandKm);
@@ -597,7 +610,7 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
     const longestLandKm = legs.reduce((max, leg) => Math.max(max, leg.longestLandKm), 0);
     const longestWaterKm = legs.reduce((max, leg) => Math.max(max, leg.longestWaterKm), 0);
     return { legs, totalKm, landKm, waterKm, landPct, waterPct, longestKm, longestLandKm, longestWaterKm };
-  }, [activePath]);
+  }, [activePath, countries]);
 
   return (
     <div className="crt-app flex h-screen w-full bg-[#050608] font-sans text-white overflow-hidden">
