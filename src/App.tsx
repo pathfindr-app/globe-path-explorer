@@ -195,22 +195,24 @@ export default function App() {
   const globeMaterial = useMemo(() => {
     const loader = new THREE.TextureLoader();
     const style = globeStyles[globeStyle as keyof typeof globeStyles];
-    const map = loader.load(style.img);
-    const bumpMap = loader.load(style.bump);
+    const map = globeStyle === 'dark' ? null : loader.load(style.img);
 
-    map.colorSpace = THREE.SRGBColorSpace;
-    map.anisotropy = 8;
-    bumpMap.anisotropy = 8;
+    if (map) {
+      map.colorSpace = THREE.SRGBColorSpace;
+      map.anisotropy = 16;
+      map.minFilter = THREE.LinearMipmapLinearFilter;
+      map.magFilter = THREE.LinearFilter;
+      map.generateMipmaps = true;
+    }
 
     const material = new THREE.MeshPhongMaterial({
-      map,
-      bumpMap,
-      bumpScale: 5.2,
-      color: new THREE.Color('#ffd18a'),
-      emissive: new THREE.Color('#3f2507'),
-      emissiveIntensity: isMobile ? 0.34 : 0.46,
-      specular: new THREE.Color('#ffcf7a'),
-      shininess: 4.5,
+      ...(map ? { map } : {}),
+      bumpScale: 0,
+      color: new THREE.Color(globeStyle === 'dark' ? '#d99345' : '#ffe0a3'),
+      emissive: new THREE.Color(globeStyle === 'dark' ? '#301a08' : '#1d1207'),
+      emissiveIntensity: globeStyle === 'dark' ? (isMobile ? 0.34 : 0.42) : (isMobile ? 0.22 : 0.29),
+      specular: new THREE.Color('#c98f45'),
+      shininess: 2.2,
       transparent: false
     });
 
@@ -218,17 +220,16 @@ export default function App() {
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <dithering_fragment>',
         `
-          float crtRim = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 2.4);
-          float crtLatitudeBand = sin(vViewPosition.y * 38.0) * 0.5 + 0.5;
-          float crtFineBand = sin((vViewPosition.x + vViewPosition.y) * 145.0) * 0.5 + 0.5;
-          vec3 crtAmber = vec3(1.0, 0.62, 0.18);
-          vec3 crtHot = vec3(1.0, 0.86, 0.46);
+          float rim = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 2.8);
+          float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+          vec3 amber = vec3(1.0, 0.61, 0.22);
+          vec3 warmLight = vec3(1.0, 0.80, 0.48);
 
-          gl_FragColor.rgb = mix(gl_FragColor.rgb * vec3(1.30, 0.82, 0.36), crtAmber, 0.26);
-          gl_FragColor.rgb += crtAmber * crtRim * 0.62;
-          gl_FragColor.rgb += crtHot * pow(crtRim, 4.0) * 0.34;
-          gl_FragColor.rgb *= 0.86 + (crtLatitudeBand * 0.12) + (crtFineBand * 0.045);
-          gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.11, 0.065, 0.018));
+          gl_FragColor.rgb = mix(gl_FragColor.rgb * vec3(1.10, 0.88, 0.60), amber, 0.13);
+          gl_FragColor.rgb += amber * rim * 0.40;
+          gl_FragColor.rgb += warmLight * pow(rim, 4.5) * 0.16;
+          gl_FragColor.rgb += vec3(dither * 0.010);
+          gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.075, 0.047, 0.018));
           #include <dithering_fragment>
         `
       );
@@ -240,19 +241,19 @@ export default function App() {
   const countryCapMaterial = useMemo(() => new THREE.MeshBasicMaterial({
     color: new THREE.Color('#ffb84a'),
     transparent: true,
-    opacity: isMobile ? 0.022 : 0.035,
+    opacity: isMobile ? 0.014 : 0.021,
     depthWrite: false,
     side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending
+    blending: THREE.NormalBlending
   }), [isMobile]);
 
   const countrySideMaterial = useMemo(() => new THREE.MeshBasicMaterial({
     color: new THREE.Color('#ff8f24'),
     transparent: true,
-    opacity: 0.018,
+    opacity: 0.009,
     depthWrite: false,
     side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending
+    blending: THREE.NormalBlending
   }), []);
 
   const handleGlobeReady = useCallback(() => {
@@ -1048,13 +1049,11 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
           <Globe
             ref={globeRef}
             globeImageUrl={globeStyles[globeStyle as keyof typeof globeStyles].img}
-            bumpImageUrl={globeStyles[globeStyle as keyof typeof globeStyles].bump}
             globeMaterial={globeMaterial}
-            globeCurvatureResolution={3}
-            showGraticules
+            globeCurvatureResolution={5}
             showAtmosphere
             atmosphereColor="#ffb84a"
-            atmosphereAltitude={isMobile ? 0.16 : 0.19}
+            atmosphereAltitude={isMobile ? 0.12 : 0.145}
             backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
             onGlobeReady={handleGlobeReady}
             
@@ -1063,9 +1062,9 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
             polygonsData={countries}
             polygonCapMaterial={countryCapMaterial}
             polygonSideMaterial={countrySideMaterial}
-            polygonStrokeColor={() => 'rgba(255, 207, 122, 0.82)'}
-            polygonAltitude={() => isMobile ? 0.003 : 0.0045}
-            polygonCapCurvatureResolution={3}
+            polygonStrokeColor={() => 'rgba(255, 214, 143, 0.42)'}
+            polygonAltitude={() => isMobile ? 0.0018 : 0.0026}
+            polygonCapCurvatureResolution={5}
             polygonLabel={(d: any) => `<div class="crt-globe-label"><strong>${escapeHtml(d.properties?.name || 'COUNTRY')}</strong><br/><span>Click to add point</span></div>`}
             onPolygonClick={(_polygon: any, _event: MouseEvent, coords: { lat: number; lng: number }) => handlePlacePoint({ lat: coords.lat, lng: coords.lng })}
             polygonsTransitionDuration={0}
