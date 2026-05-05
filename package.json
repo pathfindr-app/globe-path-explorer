@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test src/**/*.test.ts",
+    "perf:route": "tsx scripts/perf-route-surface.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

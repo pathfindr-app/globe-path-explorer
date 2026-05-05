@@ -147,6 +147,7 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+    let osmTimer: number | undefined;
 
     fetch(`${assetBase}countries-110m.geojson`)
       .then(resp => resp.json())
@@ -155,25 +156,34 @@ export default function App() {
       })
       .catch(err => console.error('Failed to load country outline layer', err));
 
-    fetch(`${assetBase}land-osm-simplified.geojson`)
-      .then(resp => {
-        if (!resp.ok) throw new Error(`OSM land data failed: ${resp.status}`);
-        return resp.json();
-      })
-      .then(data => {
-        if (cancelled) return;
-        setOsmLandFeatures((data.features || []) as LandFeature[]);
-        setLandDataStatus('ready');
-      })
-      .catch(err => {
-        console.error('Failed to load OSM land precision layer', err);
-        if (!cancelled) setLandDataStatus('fallback');
-      });
+    if (isMobile) {
+      setOsmLandFeatures([]);
+      setLandDataStatus('fallback');
+    } else {
+      setLandDataStatus('loading');
+      osmTimer = window.setTimeout(() => {
+        fetch(`${assetBase}land-osm-simplified.geojson`)
+          .then(resp => {
+            if (!resp.ok) throw new Error(`OSM land data failed: ${resp.status}`);
+            return resp.json();
+          })
+          .then(data => {
+            if (cancelled) return;
+            setOsmLandFeatures((data.features || []) as LandFeature[]);
+            setLandDataStatus('ready');
+          })
+          .catch(err => {
+            console.error('Failed to load OSM land precision layer', err);
+            if (!cancelled) setLandDataStatus('fallback');
+          });
+      }, 1200);
+    }
 
     return () => {
       cancelled = true;
+      if (osmTimer) window.clearTimeout(osmTimer);
     };
-  }, [assetBase]);
+  }, [assetBase, isMobile]);
 
   const countryLandIndex = useMemo<LandIndex | null>(() => {
     if (!countries.length) return null;
@@ -186,6 +196,9 @@ export default function App() {
   }, [osmLandFeatures]);
 
   const activeLandIndex = osmLandIndex || countryLandIndex;
+  const routeSampleCount = isMobile ? 360 : 720;
+  const fullOrbitSampleCount = isMobile ? 260 : 520;
+  const shouldCalculateSurface = !isMobile || isSidebarOpen;
   const landSourceLabel = osmLandIndex
     ? 'OSM coastline polygons · high precision'
     : countryLandIndex
@@ -258,6 +271,10 @@ export default function App() {
 
   const handleGlobeReady = useCallback(() => {
     if (!globeRef.current) return;
+    const renderer = globeRef.current.renderer?.();
+    if (renderer) {
+      renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio || 1, 1.5));
+    }
     const scene = globeRef.current.scene?.();
     if (scene && !scene.getObjectByName('amber-country-rim-light')) {
       const key = new THREE.DirectionalLight('#ffc76a', 1.45);
@@ -269,7 +286,7 @@ export default function App() {
       fill.name = 'amber-country-fill-light';
       scene.add(fill);
     }
-  }, []);
+  }, [isMobile]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -394,7 +411,7 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
     const allSegs: any[] = [];
     const addPathSegments = ({ id, path, coords, km, label, dashed = false }: { id: string; path: Path; coords: [number, number][]; km: number; label: string; dashed?: boolean }) => {
       const isActive = path.id === activePathId;
-      if (isActive && activeLandIndex) {
+      if (isActive && activeLandIndex && shouldCalculateSurface) {
         const surface = calculateSurfaceStats(coords, activeLandIndex);
         surface.segments.forEach((segment, idx) => {
           allSegs.push({
@@ -432,12 +449,12 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
               const coordsShort = calculateGeodesicPath(
                 [start.lng, start.lat],
                 [end.lng, end.lat],
-                { type: 'shortest', npoints: 1200 }
+                { type: 'shortest', npoints: fullOrbitSampleCount }
               );
               const coordsLong = calculateGeodesicPath(
                 [start.lng, start.lat],
                 [end.lng, end.lat],
-                { type: 'longest', npoints: 1200 }
+                { type: 'longest', npoints: fullOrbitSampleCount }
               );
               
               const shortKm = lineDistanceKm(coordsShort);
@@ -471,7 +488,7 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
             const coords = calculateGeodesicPath(
               [start.lng, start.lat],
               [end.lng, end.lat],
-              { type: path.type === 'full' ? 'shortest' : path.type, npoints: 1600 }
+              { type: path.type === 'full' ? 'shortest' : path.type, npoints: routeSampleCount }
             );
             const km = lineDistanceKm(coords);
             const startName = start.name || `Point ${i + 1}`;
@@ -493,7 +510,7 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
       }
     });
     return allSegs;
-  }, [paths, activePathId]);
+  }, [paths, activePathId, activeLandIndex, routeSampleCount, fullOrbitSampleCount, shouldCalculateSurface]);
 
   const globePoints = useMemo(() => {
     return paths.flatMap(path => 
@@ -531,19 +548,25 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
       try {
         const coordsSets = activePath.type === 'full'
           ? [
-              calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: 'shortest', npoints: 1200 }),
-              calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: 'longest', npoints: 1200 })
+              calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: 'shortest', npoints: fullOrbitSampleCount }),
+              calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: 'longest', npoints: fullOrbitSampleCount })
             ]
-          : [calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: activePath.type, npoints: 1600 })];
+          : [calculateGeodesicPath([start.lng, start.lat], [end.lng, end.lat], { type: activePath.type, npoints: routeSampleCount })];
 
         coordsSets.forEach(coords => {
-          km += lineDistanceKm(coords);
-          const surface = calculateSurfaceStats(coords, activeLandIndex);
-          landKm += surface.landKm;
-          waterKm += surface.waterKm;
-          coastlineCrossings += surface.coastlineCrossings;
-          longestLandKm = Math.max(longestLandKm, surface.longestLandKm);
-          longestWaterKm = Math.max(longestWaterKm, surface.longestWaterKm);
+          const legKm = lineDistanceKm(coords);
+          km += legKm;
+          if (shouldCalculateSurface && activeLandIndex) {
+            const surface = calculateSurfaceStats(coords, activeLandIndex);
+            landKm += surface.landKm;
+            waterKm += surface.waterKm;
+            coastlineCrossings += surface.coastlineCrossings;
+            longestLandKm = Math.max(longestLandKm, surface.longestLandKm);
+            longestWaterKm = Math.max(longestWaterKm, surface.longestWaterKm);
+          } else {
+            waterKm += legKm;
+            longestWaterKm = Math.max(longestWaterKm, legKm);
+          }
         });
       } catch (err) {
         console.error('Failed to calculate leg stats', err);
@@ -573,7 +596,7 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
     const longestWaterKm = legs.reduce((max, leg) => Math.max(max, leg.longestWaterKm), 0);
     const coastlineCrossings = legs.reduce((acc, leg) => acc + leg.coastlineCrossings, 0);
     return { legs, totalKm, landKm, waterKm, landPct, waterPct, longestKm, longestLandKm, longestWaterKm, coastlineCrossings };
-  }, [activePath, activeLandIndex]);
+  }, [activePath, activeLandIndex, routeSampleCount, fullOrbitSampleCount, shouldCalculateSurface]);
 
   return (
     <div className="crt-app flex h-screen w-full bg-[#050608] font-sans text-white overflow-hidden">
@@ -920,7 +943,9 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
                     </div>
 
                     <div className="border border-[#2D2D2D] bg-black/20 p-3 text-[12px] font-mono uppercase tracking-[0.04em] text-white/45 leading-relaxed">
-                      Land/water uses OSM-derived coastline polygons with dense geodesic sampling. Blue route segments are water; pale segments are land. Full OSM coastline is too large for static delivery, so this uses the highest practical static OSM precision layer.
+                      {landDataStatus === 'ready'
+                        ? 'Land/water uses OSM-derived coastline polygons with dense geodesic sampling. Blue route segments are water; pale segments are land. Full OSM coastline is too large for static delivery, so this uses the highest practical static OSM precision layer.'
+                        : 'Land/water is using the lightweight country-polygon fallback for smoother interaction on this device. Desktop mode loads the higher-precision OSM coastline layer after the initial UI is responsive.'}
                     </div>
 
                     <div className="border border-[#2D2D2D] bg-[#0D0E12] overflow-hidden">
@@ -1044,6 +1069,18 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
           </button>
         </div>
 
+        {isMobile && (
+          <div className="absolute bottom-24 left-0 right-0 z-[920] flex justify-center px-4 pointer-events-none">
+            <button
+              onClick={addViewCenterPoint}
+              className="pointer-events-auto flex min-h-[52px] items-center gap-2 rounded-full border border-[#ffb84a]/35 bg-black/78 px-5 py-3 text-[13px] font-mono font-semibold uppercase tracking-[0.12em] text-[#ffe0a3] shadow-[0_18px_48px_rgba(0,0,0,0.55),0_0_24px_rgba(255,184,74,0.16)] backdrop-blur-xl active:scale-[0.98]"
+            >
+              <MapPin className="h-5 w-5 text-[#ffb84a]" />
+              Drop node at center
+            </button>
+          </div>
+        )}
+
         {/* Globe Viewports */}
         <div className="crt-viewport absolute inset-0 z-0 select-none">
           <Globe
@@ -1059,7 +1096,7 @@ setPaths([{ id: '1', name: 'Route 01', points: [], type: 'shortest', color: '#FF
             
             onGlobeClick={(coords) => handlePlacePoint({ lat: coords.lat, lng: coords.lng })}
             
-            polygonsData={countries}
+            polygonsData={isMobile && !isSidebarOpen ? [] : countries}
             polygonCapMaterial={countryCapMaterial}
             polygonSideMaterial={countrySideMaterial}
             polygonStrokeColor={() => 'rgba(255, 214, 143, 0.42)'}

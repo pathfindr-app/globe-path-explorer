@@ -14,6 +14,7 @@ export interface LandFeature {
 
 export interface LandIndex {
   features: LandFeature[];
+  bboxes: [number, number, number, number][];
   cellSize: number;
   cells: Map<string, number[]>;
 }
@@ -46,12 +47,22 @@ function clampLat(lat: number) {
 }
 
 export function segmentDistanceKm(a: [number, number], b: [number, number]) {
-  return turf.distance(turf.point(a), turf.point(b), { units: 'kilometers' });
+  const toRad = Math.PI / 180;
+  const lat1 = a[1] * toRad;
+  const lat2 = b[1] * toRad;
+  const dLat = (b[1] - a[1]) * toRad;
+  const dLng = (b[0] - a[0]) * toRad;
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const h = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLng * sinLng;
+  return 6371.0088 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
 }
 
 export function lineDistanceKm(coords: [number, number][]) {
   if (coords.length < 2) return 0;
-  return turf.length(turf.lineString(coords), { units: 'kilometers' });
+  let km = 0;
+  for (let i = 1; i < coords.length; i++) km += segmentDistanceKm(coords[i - 1], coords[i]);
+  return km;
 }
 
 function scanCoords(coords: any, bbox: [number, number, number, number]) {
@@ -87,12 +98,14 @@ function cellKey(x: number, y: number) {
 
 export function buildLandIndex(features: LandFeature[], cellSize = 5): LandIndex {
   const cells = new Map<string, number[]>();
+  const bboxes: [number, number, number, number][] = [];
   features.forEach((feature, idx) => {
     const [minLngRaw, minLatRaw, maxLngRaw, maxLatRaw] = featureBbox(feature);
     const minLng = Math.min(minLngRaw, maxLngRaw);
     const maxLng = Math.max(minLngRaw, maxLngRaw);
     const minLat = Math.min(minLatRaw, maxLatRaw);
     const maxLat = Math.max(minLatRaw, maxLatRaw);
+    bboxes[idx] = [minLng, minLat, maxLng, maxLat];
     const x0 = Math.floor((minLng + 180) / cellSize);
     const x1 = Math.floor((maxLng + 180) / cellSize);
     const y0 = Math.floor((minLat + 90) / cellSize);
@@ -106,17 +119,12 @@ export function buildLandIndex(features: LandFeature[], cellSize = 5): LandIndex
       }
     }
   });
-  return { features, cellSize, cells };
+  return { features, bboxes, cellSize, cells };
 }
 
-function bboxContains(feature: LandFeature, coord: [number, number]) {
+function bboxContains(bbox: [number, number, number, number], coord: [number, number]) {
   const [lng, lat] = coord;
-  const [minLngRaw, minLatRaw, maxLngRaw, maxLatRaw] = featureBbox(feature);
-  const minLng = Math.min(minLngRaw, maxLngRaw);
-  const maxLng = Math.max(minLngRaw, maxLngRaw);
-  const minLat = Math.min(minLatRaw, maxLatRaw);
-  const maxLat = Math.max(minLatRaw, maxLatRaw);
-  return lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat;
+  return lng >= bbox[0] && lng <= bbox[2] && lat >= bbox[1] && lat <= bbox[3];
 }
 
 export function isLand(coord: [number, number], index: LandIndex | null): boolean {
@@ -129,7 +137,7 @@ export function isLand(coord: [number, number], index: LandIndex | null): boolea
   const point = turf.point([lng, lat]);
   for (const featureIndex of candidates) {
     const feature = index.features[featureIndex];
-    if (!bboxContains(feature, [lng, lat])) continue;
+    if (!bboxContains(index.bboxes[featureIndex], [lng, lat])) continue;
     try {
       if (turf.booleanPointInPolygon(point, feature as any)) return true;
     } catch {
